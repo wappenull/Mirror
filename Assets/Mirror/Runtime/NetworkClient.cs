@@ -339,6 +339,7 @@ namespace Mirror
             {
                 if (LogFilter.Debug) Debug.Log("NetworkClient.RegisterHandler replacing " + handler + " - " + msgType);
             }
+            //Debug.Log( $"Client RegisterHandler msg ID {msgType} type {typeof(T)}" );
             handlers[msgType] = MessagePacker.MessageHandler<T>(handler);
         }
 

@@ -121,9 +121,13 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, cmdName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+#if UNITY_EDITOR ||  DEVELOPMENT_BUILD
+                debug = $"{invokeClass.FullName}.{cmdName}" // Same string involved to hash in GetMethodHash
+#endif
             };
 
+            //Debug.Log( $"ObjCmd {this.name} {cmdName} hash {message.functionHash}" );
             ClientScene.readyConnection.Send(message, channelId);
         }
 
@@ -157,7 +161,8 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, rpcName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+                debug = rpcName
             };
 
             NetworkServer.SendToReady(netIdentity, message, channelId);
@@ -196,7 +201,8 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, rpcName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+                debug = rpcName
             };
 
             conn.Send(message, channelId);
@@ -225,7 +231,8 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, eventName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+                debug = eventName
             };
 
             NetworkServer.SendToReady(netIdentity,message, channelId);
@@ -255,6 +262,12 @@ namespace Mirror
         protected static void RegisterDelegate(Type invokeClass, string cmdName, MirrorInvokeType invokerType, CmdDelegate func)
         {
             int cmdHash = GetMethodHash(invokeClass, cmdName); // type+func so Inventory.RpcUse != Equipment.RpcUse
+
+            //// DEBUG
+            //if( invokerType == MirrorInvokeType.Command && invokeClass.Name == "DungenPlayer" )
+            //{
+            //    Debug.Log( $"Registering {cmdName} as {cmdHash}" );
+            //}
 
             if (cmdHandlerDelegates.ContainsKey(cmdHash))
             {

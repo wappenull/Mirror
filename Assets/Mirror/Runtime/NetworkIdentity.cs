@@ -198,26 +198,9 @@ namespace Mirror
 
 #if UNITY_EDITOR
         void AssignAssetID(GameObject prefab) => AssignAssetID(AssetDatabase.GetAssetPath(prefab));
-        void AssignAssetID(string path) => m_AssetId = AssetDatabase.AssetPathToGUID(path);
-
-        bool ThisIsAPrefab() => PrefabUtility.IsPartOfPrefabAsset(gameObject);
-
-        bool ThisIsASceneObjectWithPrefabParent(out GameObject prefab)
+        void AssignAssetID(string path)
         {
-            prefab = null;
-
-            if (!PrefabUtility.IsPartOfPrefabInstance(gameObject))
-            {
-                return false;
-            }
-            prefab = (GameObject)PrefabUtility.GetCorrespondingObjectFromSource(gameObject);
-
-            if (prefab == null)
-            {
-                Debug.LogError("Failed to find prefab parent for scene object [name:" + gameObject.name + "]");
-                return false;
-            }
-            return true;
+            m_AssetId = AssetDatabase.AssetPathToGUID(path);
         }
 
         static uint GetRandomUInt()
@@ -356,29 +339,80 @@ namespace Mirror
 
         void SetupIDs()
         {
-            if (ThisIsAPrefab())
+            // New simple rules:
+            // - NetworkIdentity MUST be on prefab root in order to have m_AssetId, else zero
+            // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
+
+            // Prefab stage needed to be checked first as it is very special rule
+            var prop = Wappen.Editor.PrefabHelper.GetPrefabProperties( gameObject );
+                
+            // Determine m_SceneId
+            if( prop.isSceneObject )
             {
-                m_SceneId = 0; // force 0 for prefabs
-                AssignAssetID(gameObject);
+                // This NetworkIdentity is placed in scene
+                // Could be nested inside another prefab or not.
+                AssignSceneID();
             }
+            else
+            {
+                // Non scene object, 
+                m_SceneId = 0; // force 0 for prefabs
+            }
+
+            // Also when instantiating real prefab into scene on runtime (e.g., map generator)
+            // Old Mirror logic will use outermost prefab as asset ID which is wrong
+            // We will make exception that NetworkIdentity must be on root level of prefab in order to have asset ID
+            if( prop.isRootOfAnyPrefab )
+            {
+                // Yes, this NetworkIdentity is on prefab asset itself
+                AssignAssetID( prop.prefabAssetPath );
+            }
+            else
+            {
+                // No, this NetworkIdentity is not on valid unity prefab asset gameObject
+                // Dont bother assign asset ID
+                m_AssetId = "";
+            }
+
+            /*
             // check prefabstage BEFORE SceneObjectWithPrefabParent
             // (fixes https://github.com/vis2k/Mirror/issues/976)
             else if (PrefabStageUtility.GetCurrentPrefabStage() != null)
             {
+                // We are in prefab editor
+                // But make sure that this is root NetworkIdentity
+                var stage = PrefabStageUtility.GetCurrentPrefabStage();
+
                 m_SceneId = 0; // force 0 for prefabs
-                string path = PrefabStageUtility.GetCurrentPrefabStage().prefabAssetPath;
-                AssignAssetID(path);
+
+                if( stage.prefabContentsRoot == this.gameObject )
+                {
+                    // This NetworkIdentity is on root of prefab, therefore valid Unity prefab asset
+                    string path = stage.prefabAssetPath;
+                    AssignAssetID(path);
+                }
+                else
+                {
+                    // This is another NetworkIdentity nested inside some asset prefab
+                    // Original mirror will probably not allow this but we will make it
+                    m_AssetId = "";
+                }
             }
             else if (ThisIsASceneObjectWithPrefabParent(out GameObject prefab))
             {
+                // This is NetworkIdentity on scene, nested in prefab, assign scene ID so that it can spawn on scene activation
                 AssignSceneID();
-                AssignAssetID(prefab);
+                
+                // Original mirror expects that developer should register this
+                string path = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot( gameObject );
+                AssignAssetID( path );
             }
             else
             {
+                // This is NetworkIdentity on scene, not nested in any prefab
                 AssignSceneID();
                 m_AssetId = "";
-            }
+            }*/
         }
 #endif
 
@@ -693,7 +727,7 @@ namespace Mirror
         }
 
         // helper function to handle SyncEvent/Command/Rpc
-        void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader)
+        void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader, string debugName)
         {
             if (gameObject == null)
             {
@@ -707,7 +741,7 @@ namespace Mirror
                 NetworkBehaviour invokeComponent = networkBehavioursCache[componentIndex];
                 if (!invokeComponent.InvokeHandlerDelegate(functionHash, invokeType, reader))
                 {
-                    Debug.LogError("Found no receiver for incoming " + invokeType + " [" + functionHash + "] on " + gameObject + ",  the server and client should have the same NetworkBehaviour instances [netId=" + netId + "].");
+                    Debug.LogError("Found no receiver for incoming " + invokeType + " [" + debugName + "] on " + gameObject + ",  the server and client should have the same NetworkBehaviour instances [netId=" + netId + "].");
                 }
             }
             else
@@ -717,21 +751,21 @@ namespace Mirror
         }
 
         // happens on client
-        internal void HandleSyncEvent(int componentIndex, int eventHash, NetworkReader reader)
+        internal void HandleSyncEvent(int componentIndex, int eventHash, NetworkReader reader, string debugName)
         {
-            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader);
+            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader, debugName);
         }
 
         // happens on server
-        internal void HandleCommand(int componentIndex, int cmdHash, NetworkReader reader)
+        internal void HandleCommand(int componentIndex, int cmdHash, NetworkReader reader, string debugName)
         {
-            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader);
+            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader, debugName);
         }
 
         // happens on client
-        internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader)
+        internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader, string debugName )
         {
-            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader);
+            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader, debugName);
         }
 
         internal void OnUpdateVars(NetworkReader reader, bool initialState)

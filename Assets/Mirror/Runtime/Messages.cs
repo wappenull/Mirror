@@ -224,12 +224,15 @@ namespace Mirror
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
 
+        public string debug;
+
         public void Deserialize(NetworkReader reader)
         {
             netId = reader.ReadPackedUInt32();
             componentIndex = (int)reader.ReadPackedUInt32();
             functionHash = reader.ReadInt32(); // hash is always 4 full bytes, WritePackedInt would send 1 extra byte here
             payload = reader.ReadBytesAndSizeSegment();
+            debug = reader.ReadString( );
         }
 
         public void Serialize(NetworkWriter writer)
@@ -238,6 +241,7 @@ namespace Mirror
             writer.WritePackedUInt32((uint)componentIndex);
             writer.WriteInt32(functionHash);
             writer.WriteBytesAndSizeSegment(payload);
+            writer.WriteString(debug);
         }
     }
 
@@ -250,12 +254,15 @@ namespace Mirror
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
 
+        public string debug;
+
         public void Deserialize(NetworkReader reader)
         {
             netId = reader.ReadPackedUInt32();
             componentIndex = (int)reader.ReadPackedUInt32();
             functionHash = reader.ReadInt32(); // hash is always 4 full bytes, WritePackedInt would send 1 extra byte here
             payload = reader.ReadBytesAndSizeSegment();
+            debug = reader.ReadString( );
         }
 
         public void Serialize(NetworkWriter writer)
@@ -264,6 +271,7 @@ namespace Mirror
             writer.WritePackedUInt32((uint)componentIndex);
             writer.WriteInt32(functionHash);
             writer.WriteBytesAndSizeSegment(payload);
+            writer.WriteString(debug);
         }
     }
 
@@ -276,12 +284,15 @@ namespace Mirror
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
 
+        public string debug;
+
         public void Deserialize(NetworkReader reader)
         {
             netId = reader.ReadPackedUInt32();
             componentIndex = (int)reader.ReadPackedUInt32();
             functionHash = reader.ReadInt32(); // hash is always 4 full bytes, WritePackedInt would send 1 extra byte here
             payload = reader.ReadBytesAndSizeSegment();
+            debug = reader.ReadString( );
         }
 
         public void Serialize(NetworkWriter writer)
@@ -290,6 +301,7 @@ namespace Mirror
             writer.WritePackedUInt32((uint)componentIndex);
             writer.WriteInt32(functionHash);
             writer.WriteBytesAndSizeSegment(payload);
+            writer.WriteString(debug);
         }
     }
     #endregion
@@ -303,6 +315,8 @@ namespace Mirror
         public Vector3 position;
         public Quaternion rotation;
         public Vector3 scale;
+        public string debugName;
+
         // the serialized component data
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
@@ -316,6 +330,7 @@ namespace Mirror
             rotation = reader.ReadQuaternion();
             scale = reader.ReadVector3();
             payload = reader.ReadBytesAndSizeSegment();
+            debugName = reader.ReadString( );
         }
 
         public void Serialize(NetworkWriter writer)
@@ -327,6 +342,7 @@ namespace Mirror
             writer.WriteQuaternion(rotation);
             writer.WriteVector3(scale);
             writer.WriteBytesAndSizeSegment(payload);
+            writer.WriteString( debugName );
         }
     }
 

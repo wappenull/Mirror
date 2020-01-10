@@ -258,6 +258,9 @@ namespace Mirror
             }
             spawnHandlers.Remove(identity.assetId);
             unspawnHandlers.Remove(identity.assetId);
+
+            // Wappen added
+            prefabs.Remove( identity.assetId );
         }
 
         public static void RegisterSpawnHandler(Guid assetId, SpawnDelegate spawnHandler, UnSpawnDelegate unspawnHandler)
@@ -423,7 +426,7 @@ namespace Mirror
             }
             else
             {
-                Debug.LogError("Failed to spawn server object, did you forget to add it to the NetworkManager? assetId=" + msg.assetId + " netId=" + msg.netId);
+                Debug.LogError("Failed to spawn server object, did you forget to add it to the NetworkManager? assetId=" + msg.assetId + " netId=" + msg.netId + "dbg: " + msg.debugName);
             }
         }
 
@@ -583,9 +586,9 @@ namespace Mirror
         {
             if (LogFilter.Debug) Debug.Log("ClientScene.OnRPCMessage hash:" + msg.functionHash + " netId:" + msg.netId);
 
-            if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity))
+            if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity) && identity != null )
             {
-                identity.HandleRPC(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload));
+                identity.HandleRPC(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload), msg.debug);
             }
         }
 
@@ -593,9 +596,9 @@ namespace Mirror
         {
             if (LogFilter.Debug) Debug.Log("ClientScene.OnSyncEventMessage " + msg.netId);
 
-            if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity))
+            if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity) && identity != null )
             {
-                identity.HandleSyncEvent(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload));
+                identity.HandleSyncEvent(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload), msg.debug);
             }
             else
             {
@@ -607,7 +610,7 @@ namespace Mirror
         {
             if (LogFilter.Debug) Debug.Log("ClientScene.OnClientAuthority for netId: " + msg.netId);
 
-            if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity))
+            if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity) && identity != null )
             {
                 identity.HandleClientAuthority(msg.authority);
             }

@@ -44,6 +44,9 @@ namespace Telepathy
         // -> call WaitOne() to block until Reset was called
         ManualResetEvent sendPending = new ManualResetEvent(false);
 
+        // Wappen:
+        bool abortConnect;
+
         // the thread function
         void ReceiveThreadFunction(string ip, int port)
         {
@@ -51,8 +54,34 @@ namespace Telepathy
             // exceptions are silent
             try
             {
-                // connect (blocking)
-                client.Connect(ip, port);
+                // Wappen: Resolve DNS and prepare best socket family   
+                // This is also blocking operation so it should be in thread
+                IPAddress targetIp = null;
+                targetIp = _ResolveBestIpInterface( ip );
+
+                if( targetIp == null )
+                {
+                    throw new OperationCanceledException( "No IPAddress suitable for connect for target ip " + ip );
+                }
+
+                client = new TcpClient( targetIp.AddressFamily );
+
+                // Wappen Modifying: Use Nonblocking to get rid of Thread Join delay.
+                var result = client.BeginConnect( ip, port, null, null );
+                while( result.AsyncWaitHandle.WaitOne( 100 ) == false )
+                {
+                    if( abortConnect )
+                    {
+                        client.Close( );
+                        break;
+                    }
+                }
+
+                if( abortConnect )
+                    throw new OperationCanceledException( "abortConnect" );
+
+                // If task is completed and reached here, supposed it is finished!
+                client.EndConnect(result);
                 _Connecting = false;
 
                 // set socket options after the socket was created in Connect()
@@ -67,6 +96,11 @@ namespace Telepathy
 
                 // run the receive loop
                 ReceiveLoop(0, client, receiveQueue, MaxMessageSize);
+            }
+            catch( OperationCanceledException )
+            {
+                // Connect operation is cancelled
+                receiveQueue.Enqueue(new Message(0, EventType.Disconnected, null));
             }
             catch (SocketException exception)
             {
@@ -99,7 +133,8 @@ namespace Telepathy
             // if we got here then we are done. ReceiveLoop cleans up already,
             // but we may never get there if connect fails. so let's clean up
             // here too.
-            client.Close();
+            if( client != null )
+                client.Close();
         }
 
         public void Connect(string ip, int port)
@@ -125,8 +160,11 @@ namespace Telepathy
             // => the trick is to clear the internal IPv4 socket so that Connect
             //    resolves the hostname and creates either an IPv4 or an IPv6
             //    socket as needed (see TcpClient source)
-            client = new TcpClient(); // creates IPv4 socket
-            client.Client = null; // clear internal IPv4 socket until Connect()
+            //client = new TcpClient(); // creates IPv4 socket
+            //client.Client = null; // clear internal IPv4 socket until Connect()
+
+            client = null; // Will construct in thread
+            abortConnect = false;
 
             // clear old messages in queue, just to be sure that the caller
             // doesn't receive data from last time and gets out of sync.
@@ -152,7 +190,11 @@ namespace Telepathy
             if (Connecting || Connected)
             {
                 // close client
-                client.Close();
+                if( client != null )
+                    client.Close();
+
+                // Wappen: Mark cancel connection if we are connecting
+                abortConnect = true;
 
                 // wait until thread finished. this is the only way to guarantee
                 // that we can call Connect() again immediately after Disconnect
@@ -188,6 +230,23 @@ namespace Telepathy
             }
             Logger.LogWarning("Client.Send: not connected!");
             return false;
+        }
+
+        private static IPAddress _ResolveBestIpInterface( string ip )
+        {
+            // IPv6: We need to process each of the addresses return from
+            //       DNS when trying to connect.
+            // Code snippet from https://referencesource.microsoft.com/#system/net/System/Net/Sockets/TCPClient.cs,eeb78642518c5e2d
+            IPAddress[] addresses = Dns.GetHostAddresses( ip );
+            foreach( IPAddress address in addresses )
+            {
+                if( address.AddressFamily == AddressFamily.InterNetwork && Socket.OSSupportsIPv4 )
+                    return address;
+                else if( address.AddressFamily == AddressFamily.InterNetworkV6 && Socket.OSSupportsIPv6 )
+                    return address;
+            }
+
+            return null;
         }
     }
 }

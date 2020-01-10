@@ -278,6 +278,10 @@ namespace Mirror
                 return false;
             }
 
+            // Wappen: Reorder to run before OnStartServer, so OnStartServer can override default handlers.
+            // this must be after Listen(), since that registers the default message handlers
+            RegisterServerMessages();
+
             // call OnStartServer AFTER Listen, so that NetworkServer.active is
             // true and we can call NetworkServer.Spawn in OnStartServer
             // overrides.
@@ -288,12 +292,10 @@ namespace Mirror
             //       and we don't start processing connects until Update.
             OnStartServer();
 
-            // this must be after Listen(), since that registers the default message handlers
-            RegisterServerMessages();
-
             if (LogFilter.Debug) Debug.Log("NetworkManager StartServer");
             isNetworkActive = true;
 
+            /* Wappen: Disable this default behavior, We have our own routine
             // Only change scene if the requested online scene is not blank, and is not already loaded
             string loadedSceneName = SceneManager.GetActiveScene().name;
             if (!string.IsNullOrEmpty(onlineScene) && onlineScene != loadedSceneName && onlineScene != offlineScene)
@@ -304,6 +306,7 @@ namespace Mirror
             {
                 NetworkServer.SpawnObjects();
             }
+            */
             return true;
         }
 

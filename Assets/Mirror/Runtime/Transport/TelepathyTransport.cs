@@ -2,6 +2,7 @@
 using System;
 using System.ComponentModel;
 using System.Net.Sockets;
+using Telepathy;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -27,6 +28,9 @@ namespace Mirror
 
         [Tooltip("Protect against allocation attacks by keeping the max message size small. Otherwise an attacker host might send multiple fake packets with 2GB headers, causing the connected clients to run out of memory after allocating multiple large packets.")]
         [FormerlySerializedAs("MaxMessageSize")] public int clientMaxMessageSize = 16 * 1024;
+
+        [Header("Editor only")]
+        public float clientSimulatedDelay = 0f;
 
         protected Telepathy.Client client = new Telepathy.Client();
         protected Telepathy.Server server = new Telepathy.Server();
@@ -62,7 +66,12 @@ namespace Mirror
                         OnClientConnected.Invoke();
                         break;
                     case Telepathy.EventType.Data:
-                        OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data));
+#if UNITY_EDITOR
+                        if( clientSimulatedDelay > 0 )
+                            StartCoroutine( _DelayDispatchClientData( clientSimulatedDelay, message ) );
+                        else
+#endif
+                            OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data));
                         break;
                     case Telepathy.EventType.Disconnected:
                         OnClientDisconnected.Invoke();
@@ -107,7 +116,12 @@ namespace Mirror
                         OnServerConnected.Invoke(message.connectionId);
                         break;
                     case Telepathy.EventType.Data:
-                        OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data));
+#if UNITY_EDITOR
+                        if( clientSimulatedDelay > 0 )
+                            StartCoroutine( _DelayDispatchServerData( clientSimulatedDelay, message ) );
+                        else
+#endif
+                            OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data));
                         break;
                     case Telepathy.EventType.Disconnected:
                         OnServerDisconnected.Invoke(message.connectionId);
@@ -121,6 +135,20 @@ namespace Mirror
             }
             return false;
         }
+
+        private System.Collections.IEnumerator _DelayDispatchServerData( float clientSimulatedDelay, Message message )
+        {
+            yield return new WaitForSecondsRealtime( clientSimulatedDelay );
+            OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data));
+        }
+
+        private System.Collections.IEnumerator _DelayDispatchClientData( float clientSimulatedDelay, Message message )
+        {
+            yield return new WaitForSecondsRealtime( clientSimulatedDelay );
+            OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data));
+        }
+
+
         public override bool ServerDisconnect(int connectionId) => server.Disconnect(connectionId);
         public override string ServerGetClientAddress(int connectionId)
         {

@@ -191,7 +191,7 @@ namespace Mirror
             return InvokeHandler(msgType, null);
         }
 
-        internal bool InvokeHandler(int msgType, NetworkReader reader)
+        internal bool InvokeHandler(int msgType, NetworkReader reader, string debugName = null)
         {
             if (messageHandlers.TryGetValue(msgType, out NetworkMessageDelegate msgDelegate))
             {
@@ -205,7 +205,7 @@ namespace Mirror
                 msgDelegate(message);
                 return true;
             }
-            Debug.LogError("Unknown message ID " + msgType + " connId:" + connectionId);
+            Debug.LogError("Unknown message ID " + msgType + " connId:" + connectionId + " debugName:" + debugName );
             return false;
         }
 
@@ -213,7 +213,7 @@ namespace Mirror
         {
             int msgType = MessagePacker.GetId<T>();
             byte[] data = MessagePacker.Pack(msg);
-            return InvokeHandler(msgType, new NetworkReader(data));
+            return InvokeHandler(msgType, new NetworkReader(data), typeof(T).ToString( ) );
         }
 
         // handle this message
@@ -227,13 +227,13 @@ namespace Mirror
         {
             // unpack message
             NetworkReader reader = new NetworkReader(buffer);
-            if (MessagePacker.UnpackMessage(reader, out int msgType))
+            if (MessagePacker.UnpackMessage(reader, out int msgType, out string debugName ))
             {
                 // logging
                 if (logNetworkMessages) Debug.Log("ConnectionRecv con:" + connectionId + " msgType:" + msgType + " content:" + BitConverter.ToString(buffer.Array, buffer.Offset, buffer.Count));
 
                 // try to invoke the handler for that message
-                if (InvokeHandler(msgType, reader))
+                if (InvokeHandler(msgType, reader, debugName))
                 {
                     lastMessageTime = Time.time;
                 }

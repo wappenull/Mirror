@@ -439,6 +439,7 @@ namespace Mirror
             {
                 if (LogFilter.Debug) Debug.Log("NetworkServer.RegisterHandler replacing " + msgType);
             }
+            //Debug.Log( $"Server RegisterHandler msg ID {msgType} type {typeof(T)}" );
             handlers[msgType] = MessagePacker.MessageHandler<T>(handler);
         }
 
@@ -802,7 +803,7 @@ namespace Mirror
             }
 
             if (LogFilter.Debug) Debug.Log("OnCommandMessage for netId=" + msg.netId + " conn=" + conn);
-            identity.HandleCommand(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload));
+            identity.HandleCommand(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload), msg.debug);
         }
 
         internal static void SpawnObject(GameObject obj)
@@ -834,7 +835,7 @@ namespace Mirror
             if (identity.serverOnly)
                 return;
 
-            if (LogFilter.Debug) Debug.Log("Server SendSpawnMessage: name=" + identity.name + " sceneId=" + identity.sceneId.ToString("X") + " netid=" + identity.netId); // for easier debugging
+            if (LogFilter.Debug) Debug.Log("Server SendSpawnMessage: name=" + identity.name + " sceneId=" + identity.sceneId.ToString("X") + " netid=" + identity.netId + " assetid=" + identity.assetId, identity.gameObject); // for easier debugging
 
             NetworkWriter writer = NetworkWriterPool.GetWriter();
            
@@ -863,8 +864,15 @@ namespace Mirror
                     position = identity.transform.localPosition,
                     rotation = identity.transform.localRotation,
                     scale = identity.transform.localScale,
+                    debugName = identity.name,
                     payload = segment
                 };
+
+                // Wappen: Mirror check on ClientScene
+                if( msg.assetId == Guid.Empty)
+                {
+                    Debug.LogError( $"Server fault: object {identity.name} has no assetId, check" );
+                }
 
                 // conn is != null when spawning it for a client
                 if (conn != null)
@@ -1022,6 +1030,21 @@ namespace Mirror
                 }
                 SpawnObject(obj);
             }
+        }
+
+        /// <summary>
+        /// Custom routine without VerifyCanSpawn.
+        /// Client must handle this by RegisterSpawnHandler.
+        /// </summary>
+        public static void SpawnWithCustomGuid( GameObject obj, Guid assetId )
+        {
+            // Assumes obj contains 1 NetworkIdentity
+            // Assumes NetworkIdentity.assetId is set prior to this
+            if (GetNetworkIdentity(obj, out NetworkIdentity identity))
+            {
+                identity.assetId = assetId;
+            }
+            SpawnObject(obj);
         }
 
         static void DestroyObject(NetworkIdentity identity, bool destroyServerObject)

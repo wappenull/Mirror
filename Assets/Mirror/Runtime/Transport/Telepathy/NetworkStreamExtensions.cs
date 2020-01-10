@@ -12,7 +12,22 @@ public static class NetworkStreamExtensions
     {
         try
         {
-            return stream.Read(buffer, offset, size);
+            // Wappen: Async version for diagnostic
+            // There is strange lock in stream.Read while client still sending legit data seen through wireshark ,100% reproducable weird and scary stuff.
+            // Use BeginRead version instead
+            float timeWaited = 0f;
+            var result = stream.BeginRead( buffer, offset, size, null, null );
+            while( result.AsyncWaitHandle.WaitOne( 100 ) == false )
+            {
+                // Timeout occur, count time without no traffic
+                timeWaited += 0.1f;
+            }
+
+            int totalRead = stream.EndRead( result );
+            return totalRead;
+            
+            // Original call
+            //return stream.Read(buffer, offset, size);
         }
         catch (IOException)
         {

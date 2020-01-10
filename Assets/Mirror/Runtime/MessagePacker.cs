@@ -90,17 +90,19 @@ namespace Mirror
         // -> pass NetworkReader so it's less strange if we create it in here
         //    and pass it upwards.
         // -> NetworkReader will point at content afterwards!
-        public static bool UnpackMessage(NetworkReader messageReader, out int msgType)
+        public static bool UnpackMessage(NetworkReader messageReader, out int msgType, out string debugName)
         {
             // read message type (varint)
             try
             {
                 msgType = (int)messageReader.ReadUInt16();
+                debugName = "[]";
                 return true;
             }
             catch (System.IO.EndOfStreamException)
             {
                 msgType = 0;
+                debugName = "??";
                 return false;
             }
         }
