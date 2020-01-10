@@ -114,7 +114,7 @@ namespace Mirror.Weaver
         }
 
 
-        // Given a method of a generic class such as ArraySegment<T>.get_Count,   
+        // Given a method of a generic class such as ArraySegment<T>.get_Count,
         // and a generic instance such as ArraySegment<int>
         // Creates a reference to the specialized method  ArraySegment<int>.get_Count;
         // Note that calling ArraySegment<T>.get_Count directly gives an invalid IL error
@@ -135,6 +135,16 @@ namespace Mirror.Weaver
                 reference.GenericParameters.Add(new GenericParameter(generic_parameter.Name, reference));
 
             return Weaver.CurrentAssembly.MainModule.ImportReference(reference);
+        }
+
+        public static CustomAttribute GetCustomAttribute(this MethodDefinition method, string attributeName)
+        {
+            foreach (CustomAttribute ca in method.CustomAttributes)
+            {
+                if (ca.AttributeType.FullName == attributeName)
+                    return ca;
+            }
+            return null;
         }
 
     }

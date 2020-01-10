@@ -1,6 +1,8 @@
 ﻿using System.IO;
 using System.Net.Sockets;
 
+namespace Telepathy
+{
 public static class NetworkStreamExtensions
 {
     // .Read returns '0' if remote closed the connection but throws an
@@ -67,4 +69,6 @@ public static class NetworkStreamExtensions
         }
         return true;
     }
+}
+
 }

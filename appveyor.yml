@@ -7,41 +7,43 @@ version: '{branch}-{build}'
 #  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 install:
-  - set PATH=C:\Ruby25-x64\bin;%PATH%
-  - cd docs
-  - gem install bundler -v 1.17.3
-  - bundle install
-  - cd ..
-  - cp c:\Tools\curl\bin\libcurl.dll C:\Ruby25-x64\bin
   - choco install unitypackager
-  
+  - choco install docfx
+  - choco install lftp
+  - npm install -g semantic-release@15 @semantic-release/exec
+
 #build:
 #  project: Mirror/Networking.sln
 #  verbosity: minimal
   
 # Do not build on tags (GitHub only)
 skip_tags: true
+before_build:
+    - cmd: powershell .\setversion.ps1
 
 build_script:
-  - cd docs
-  - bundle exec jekyll build
-  - ruby checksite.rb
-  - cd ..
+  - docfx metadata doc\docfx.json
+  - docfx build doc\docfx.json
 
 after_build:
   - RMDIR /Q /S Assets\Mirror\Tests
   - del /F /Q Assets\Mirror\Tests.meta
-  - UnityPackager pack Mirror.unitypackage Assets/Mirror Assets/Mirror LICENSE Assets/Mirror/LICENSE
+  - UnityPackager pack Mirror.unitypackage Assets/Mirror Assets/Mirror Assets/ScriptTemplates Assets/ScriptTemplates LICENSE Assets/Mirror/LICENSE
 
 artifacts:
   - path: Mirror.unitypackage
   - path: Assets
     name: Mirror
+  - path: Assets
+    name: ScriptTemplates
 
 image: Visual Studio 2017
 
-before_deploy:
-  - npm install -g semantic-release@15 
+environment:
+  LFTP_PASSWORD:
+    secure: sH23IC4a98S5uTtgYNHNvg==
 
 deploy_script:
   - semantic-release
+  - IF "%APPVEYOR_REPO_BRANCH%"=="master" ( lftp -e 'set ftp:ssl-allow no ; mirror -R -c -e -p doc/_site public_html/docs; chmod -R a+X public_html/docs ; ls -l public_html/docs/ ; ls -l public_html/docs/styles/ ; bye' -u mirreofx --env-password ftp://mirror-networking.com 2>&1 )
+
