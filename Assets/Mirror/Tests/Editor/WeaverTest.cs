@@ -168,13 +168,6 @@ namespace Mirror.Tests
         }
 
         [Test]
-        public void SyncVarsDerivedScriptableObject()
-        {
-            Assert.That(CompilationFinishedHook.WeaveFailed, Is.True);
-            Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: Cannot generate writer for scriptable object MirrorTest.MirrorTestPlayer/MySyncVar. Use a supported type or provide a custom writer"));
-        }
-
-        [Test]
         public void SyncVarsStatic()
         {
             Assert.That(CompilationFinishedHook.WeaveFailed, Is.True);
@@ -728,5 +721,12 @@ namespace Mirror.Tests
             Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: Cannot generate writer for interface MirrorTest.SuperCoolInterface. Use a concrete type or provide a custom writer"));
         }
         #endregion
+
+         [Test]
+        public void TestingScriptableObjectArraySerialization()
+        {
+            UnityEngine.Debug.Log(string.Join("\n",weaverErrors));
+            Assert.That(CompilationFinishedHook.WeaveFailed, Is.False);
+        }
     }
 }
