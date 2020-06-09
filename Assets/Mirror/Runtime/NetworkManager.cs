@@ -587,9 +587,12 @@ namespace Mirror
             {
                 ServerChangeScene(offlineScene);
             }
+
             CleanupNetworkIdentities();
 
             startPositionIndex = 0;
+
+            networkSceneName = "";
         }
 
         /// <summary>
@@ -621,6 +624,8 @@ namespace Mirror
             }
 
             CleanupNetworkIdentities();
+
+            networkSceneName = "";
         }
 
         /// <summary>
