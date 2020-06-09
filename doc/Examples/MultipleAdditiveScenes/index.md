@@ -32,3 +32,5 @@ Click Client in the built instances.
 -   Colliding with the larger tumblers sends them rolling around...they're server-side non-kinematic rigidbodies.
 
 -   Only scores for the players in the same subscene are shown at the top of the game window.
+
+![MultiScene Network Manager](MultiSceneNetworkManager.PNG)
