@@ -197,7 +197,8 @@ namespace Mirror
 #endif
             }
 
-            maxConnections = Mathf.Max(maxConnections, 0); // always >= 0
+            // always >= 0
+            maxConnections = Mathf.Max(maxConnections, 0);
 
             if (playerPrefab != null && playerPrefab.GetComponent<NetworkIdentity>() == null)
             {
@@ -512,7 +513,7 @@ namespace Mirror
             // loaded and all objects were spawned.
             // DO NOT do this earlier. it would cause race conditions where a
             // client will do things before the server is even fully started.
-            Debug.Log("StartHostClient called");
+            if (LogFilter.Debug) Debug.Log("StartHostClient called");
             StartHostClient();
         }
 
@@ -873,12 +874,12 @@ namespace Mirror
                 {
                     // TODO only respawn the server objects from that scene later!
                     NetworkServer.SpawnObjects();
-                    Debug.Log("Respawned Server objects after additive scene load: " + scene.name);
+                    if (LogFilter.Debug) Debug.Log("Respawned Server objects after additive scene load: " + scene.name);
                 }
                 if (NetworkClient.active)
                 {
                     ClientScene.PrepareToSpawnSceneObjects();
-                    Debug.Log("Rebuild Client spawnableObjects after additive scene load: " + scene.name);
+                    if (LogFilter.Debug) Debug.Log("Rebuild Client spawnableObjects after additive scene load: " + scene.name);
                 }
             }
         }
@@ -928,7 +929,7 @@ namespace Mirror
         {
             // debug message is very important. if we ever break anything then
             // it's very obvious to notice.
-            Debug.Log("Finished loading scene in host mode.");
+            if (LogFilter.Debug) Debug.Log("Finished loading scene in host mode.");
 
             if (clientReadyConnection != null)
             {
@@ -986,7 +987,7 @@ namespace Mirror
         {
             // debug message is very important. if we ever break anything then
             // it's very obvious to notice.
-            Debug.Log("Finished loading scene in client-only mode.");
+            if (LogFilter.Debug) Debug.Log("Finished loading scene in client-only mode.");
 
             if (clientReadyConnection != null)
             {
@@ -1008,7 +1009,7 @@ namespace Mirror
         {
             // debug message is very important. if we ever break anything then
             // it's very obvious to notice.
-            Debug.Log("Finished loading scene in server-only mode.");
+            if (LogFilter.Debug) Debug.Log("Finished loading scene in server-only mode.");
 
             NetworkServer.SpawnObjects();
             OnServerSceneChanged(networkSceneName);

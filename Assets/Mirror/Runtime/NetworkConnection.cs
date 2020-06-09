@@ -219,7 +219,7 @@ namespace Mirror
                 msgDelegate(this, reader, channelId);
                 return true;
             }
-            Debug.LogError("Unknown message ID " + msgType + " " + this + " debugName:" + debugName );
+            if (Debug.isDebugBuild) Debug.Log("Unknown message ID " + msgType + " " + this + " debugName:" + debugName + ". May be due to no existing RegisterHandler for this message.");
             return false;
         }
 

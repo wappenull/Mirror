@@ -37,11 +37,12 @@ namespace Mirror
         bool[] lastBoolParameters;
         AnimatorControllerParameter[] parameters;
 
-        int[] animationHash; // multiple layers
+        // multiple layers
+        int[] animationHash;
         int[] transitionHash;
         float sendTimer;
 
-        bool sendMessagesAllowed
+        bool SendMessagesAllowed
         {
             get
             {
@@ -80,7 +81,7 @@ namespace Mirror
 
         void FixedUpdate()
         {
-            if (!sendMessagesAllowed)
+            if (!SendMessagesAllowed)
                 return;
 
             CheckSendRate();
@@ -139,7 +140,7 @@ namespace Mirror
 
         void CheckSendRate()
         {
-            if (sendMessagesAllowed && syncInterval > 0 && sendTimer < Time.time)
+            if (SendMessagesAllowed && syncInterval > 0 && sendTimer < Time.time)
             {
                 sendTimer = Time.time + syncInterval;
 
@@ -220,28 +221,19 @@ namespace Mirror
                 {
                     int newIntValue = animator.GetInteger(par.nameHash);
                     changed = newIntValue != lastIntParameters[i];
-                    if (changed)
-                    {
-                        lastIntParameters[i] = newIntValue;
-                    }
+                    lastIntParameters[i] = newIntValue;
                 }
                 else if (par.type == AnimatorControllerParameterType.Float)
                 {
                     float newFloatValue = animator.GetFloat(par.nameHash);
                     changed = Mathf.Abs(newFloatValue - lastFloatParameters[i]) > 0.001f;
-                    if (changed)
-                    {
-                        lastFloatParameters[i] = newFloatValue;
-                    }
+                    lastFloatParameters[i] = newFloatValue;
                 }
                 else if (par.type == AnimatorControllerParameterType.Bool)
                 {
                     bool newBoolValue = animator.GetBool(par.nameHash);
                     changed = newBoolValue != lastBoolParameters[i];
-                    if (changed)
-                    {
-                        lastBoolParameters[i] = newBoolValue;
-                    }
+                    lastBoolParameters[i] = newBoolValue;
                 }
                 if (changed)
                 {
@@ -369,16 +361,6 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Causes an animation trigger to be reset for a networked object.
-        /// <para>If local authority is set, and this is called from the client, then the trigger will be reset on the server and all clients. If not, then this is called on the server, and the trigger will be reset on all clients.</para>
-        /// </summary>
-        /// <param name="triggerName">Name of trigger.</param>
-        public void ResetTrigger(string triggerName)
-        {
-            ResetTrigger(Animator.StringToHash(triggerName));
-        }
-
-        /// <summary>
         /// Causes an animation trigger to be invoked for a networked object.
         /// </summary>
         /// <param name="hash">Hash id of trigger (from the Animator).</param>
@@ -411,6 +393,16 @@ namespace Mirror
 
                 RpcOnAnimationTriggerClientMessage(hash);
             }
+        }
+
+        /// <summary>
+        /// Causes an animation trigger to be reset for a networked object.
+        /// <para>If local authority is set, and this is called from the client, then the trigger will be reset on the server and all clients. If not, then this is called on the server, and the trigger will be reset on all clients.</para>
+        /// </summary>
+        /// <param name="triggerName">Name of trigger.</param>
+        public void ResetTrigger(string triggerName)
+        {
+            ResetTrigger(Animator.StringToHash(triggerName));
         }
 
         /// <summary>
