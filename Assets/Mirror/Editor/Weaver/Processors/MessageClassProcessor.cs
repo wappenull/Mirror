@@ -28,17 +28,48 @@ namespace Mirror.Weaver
             Weaver.DLog(td, "MessageClassProcessor Done");
         }
 
+        /// <summary>
+        /// Wappen extension: Find method name, highest level available in class path. (also search in base class).
+        /// </summary>
         static MethodDefinition _FindMethodInMessage( TypeDefinition td, string methodName )
         {
+            // Try current level
             MethodDefinition method = td.Methods.FirstOrDefault(md => md.Name == methodName);
 
-            // Wappen Hot fix: Also try base class
-            TypeDefinition baseTd = td.BaseType?.Resolve( );
-            while( method == null && baseTd != null )
+            // Also try base class
+            TypeDefinition currentLevel = td;
+            while( method == null )
             {
-                if( baseTd.FullName == "Mirror.MessageBase" || baseTd.FullName == "Mirror.IMessageBase" )
-                    break; // We will not use function from MessageBase layer
+                TypeDefinition baseTd = currentLevel.BaseType?.Resolve( );
+                if( baseTd == null )
+                    break; // No more base class
+
+                // Objective is to not return method from Mirror.MessageBase or Mirror.IMessageBase layer
+                // Previous attempt was to hardcoded name
+                //if( baseTd.FullName == "Mirror.MessageBase" || baseTd.FullName == "Mirror.IMessageBase" )
+                //    break; 
+
                 method = baseTd.Methods.FirstOrDefault(md => md.Name == methodName);
+                if( method != null )
+                {
+                    // Reject abstract for sure, probably from Mirror.IMessageBase
+                    // Also end search
+                    if( method.IsAbstract )
+                    {
+                        method = null;
+                        break;
+                    }
+
+                    // Do not let Mirror.MessageBase pass, mirror could overwrite it!
+                    if( baseTd.FullName == "Mirror.MessageBase" && method.Body.IsEmptyDefault( ) )
+                    {
+                        method = null;
+                        break;
+                    }
+                }
+
+                // Go deeper
+                currentLevel = baseTd;
             }
 
             return method;
@@ -47,9 +78,8 @@ namespace Mirror.Weaver
         static void GenerateSerialization(TypeDefinition td)
         {
             Weaver.DLog(td, "  GenerateSerialization");
-            // Wappen fix was this:
-            // MethodDefinition existingMethod = _FindMethodInMessage( td, "Serialize" );
-            MethodDefinition existingMethod = td.GetMethod("Serialize");
+            // Wappen fix: Also search for base class
+            MethodDefinition existingMethod = _FindMethodInMessage( td, "Serialize" );
             if (existingMethod != null && !existingMethod.Body.IsEmptyDefault())
             {
                 return;
@@ -141,8 +171,7 @@ namespace Mirror.Weaver
         static void GenerateDeSerialization(TypeDefinition td)
         {
             Weaver.DLog(td, "  GenerateDeserialization");
-            // Wappen fix was this:
-            // ethodDefinition existingMethod = _FindMethodInMessage( td, "Deserialize" );
+            // Wappen fix: Also search for base class
             MethodDefinition existingMethod = _FindMethodInMessage( td, "Deserialize" );
             if (existingMethod != null && !existingMethod.Body.IsEmptyDefault())
             {
