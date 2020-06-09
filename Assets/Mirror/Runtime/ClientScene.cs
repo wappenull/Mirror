@@ -504,7 +504,7 @@ namespace Mirror
             {
                 using (PooledNetworkReader payloadReader = NetworkReaderPool.GetReader(msg.payload))
                 {
-                    identity.OnUpdateVars(payloadReader, true);
+                    identity.OnDeserializeAllSafely(payloadReader, true);
                 }
             }
 
@@ -722,7 +722,7 @@ namespace Mirror
             if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity localObject) && localObject != null)
             {
                 using (PooledNetworkReader networkReader = NetworkReaderPool.GetReader(msg.payload))
-                    localObject.OnUpdateVars(networkReader, false);
+                    localObject.OnDeserializeAllSafely(networkReader, false);
             }
             else
             {

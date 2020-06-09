@@ -17,7 +17,8 @@ namespace Mirror
     /// </remarks>
     public abstract class NetworkConnection : IDisposable
     {
-        readonly HashSet<NetworkIdentity> visList = new HashSet<NetworkIdentity>();
+        // internal so it can be tested
+        internal readonly HashSet<NetworkIdentity> visList = new HashSet<NetworkIdentity>();
 
         Dictionary<int, NetworkMessageDelegate> messageHandlers;
 
@@ -216,9 +217,7 @@ namespace Mirror
                 // pack message and send allocation free
                 MessagePacker.Pack(msg, writer);
                 NetworkDiagnostics.OnSend(msg, channelId, writer.Position, 1);
-                bool result = Send(writer.ToArraySegment(), channelId);
-
-                return result;
+                return Send(writer.ToArraySegment(), channelId);
             }
         }
 

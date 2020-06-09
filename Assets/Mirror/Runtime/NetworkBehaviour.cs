@@ -388,13 +388,15 @@ namespace Mirror
             {
                 // something already registered this hash
                 Invoker oldInvoker = cmdHandlerDelegates[cmdHash];
-                if (oldInvoker.invokeClass == invokeClass && oldInvoker.invokeType == invokerType && oldInvoker.invokeFunction == func)
+                if (oldInvoker.invokeClass == invokeClass &&
+                    oldInvoker.invokeType == invokerType &&
+                    oldInvoker.invokeFunction == func)
                 {
                     // it's all right,  it was the same function
                     return;
                 }
 
-                Debug.LogError($"Function {oldInvoker.invokeClass}.{oldInvoker.invokeFunction.GetMethodName()} and {invokeClass}.{oldInvoker.invokeFunction.GetMethodName()} have the same hash.  Please rename one of them");
+                Debug.LogError($"Function {oldInvoker.invokeClass}.{oldInvoker.invokeFunction.GetMethodName()} and {invokeClass}.{func.GetMethodName()} have the same hash.  Please rename one of them");
             }
             Invoker invoker = new Invoker
             {
@@ -459,13 +461,16 @@ namespace Mirror
             return false;
         }
 
+        [Obsolete("Use NetworkBehaviour.GetDelegate instead.")]
+        public static CmdDelegate GetRpcHandler(int cmdHash) => GetDelegate(cmdHash);
+
         /// <summary>
         /// Gets the handler function for a given hash
         /// Can be used by profilers and debuggers
         /// </summary>
         /// <param name="cmdHash">rpc function hash</param>
         /// <returns>The function delegate that will handle the command</returns>
-        public static CmdDelegate GetRpcHandler(int cmdHash)
+        public static CmdDelegate GetDelegate(int cmdHash)
         {
             if (cmdHandlerDelegates.TryGetValue(cmdHash, out Invoker invoker))
             {
@@ -479,6 +484,8 @@ namespace Mirror
         #region Helpers
 
         // helper function for [SyncVar] GameObjects.
+        // IMPORTANT: keep as 'protected', not 'internal', otherwise Weaver
+        //            can't resolve it
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected bool SyncVarGameObjectEqual(GameObject newGameObject, uint netIdField)
         {
@@ -545,6 +552,8 @@ namespace Mirror
         }
 
         // helper function for [SyncVar] NetworkIdentities.
+        // IMPORTANT: keep as 'protected', not 'internal', otherwise Weaver
+        //            can't resolve it
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected bool SyncVarNetworkIdentityEqual(NetworkIdentity newIdentity, uint netIdField)
         {
@@ -709,7 +718,7 @@ namespace Mirror
             }
         }
 
-        ulong DirtyObjectBits()
+        internal ulong DirtyObjectBits()
         {
             ulong dirtyObjects = 0;
             for (int i = 0; i < syncObjects.Count; i++)
@@ -753,7 +762,7 @@ namespace Mirror
             return dirty;
         }
 
-        void DeSerializeObjectsAll(NetworkReader reader)
+        internal void DeSerializeObjectsAll(NetworkReader reader)
         {
             for (int i = 0; i < syncObjects.Count; i++)
             {
@@ -762,7 +771,7 @@ namespace Mirror
             }
         }
 
-        void DeSerializeObjectsDelta(NetworkReader reader)
+        internal void DeSerializeObjectsDelta(NetworkReader reader)
         {
             ulong dirty = reader.ReadPackedUInt64();
             for (int i = 0; i < syncObjects.Count; i++)
