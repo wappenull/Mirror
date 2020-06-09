@@ -8,7 +8,7 @@ namespace Mirror
     /// <para>Value must be changed on server, not directly by clients.  Hook parameter allows you to define a client-side method to be invoked when the client gets an update from the server.</para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
-    public class SyncVarAttribute : Attribute
+    public class SyncVarAttribute : PropertyAttribute
     {
         public string hook;
     }
@@ -82,4 +82,11 @@ namespace Mirror
     /// Converts a string property into a Scene property in the inspector
     /// </summary>
     public class SceneAttribute : PropertyAttribute { }
+
+    /// <summary>
+    /// Used to show private SyncList in the inspector,
+    /// <para> Use instead of SerializeField for non Serializable types </para>
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field)]
+    public class ShowInInspectorAttribute : Attribute { }
 }
