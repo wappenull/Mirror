@@ -254,27 +254,6 @@ namespace Mirror
                 }
             }
         }
-#if false
-        // Deprecated 03/03/2019
-        /// <summary>
-        /// Obsolete: Use <see cref="SendToAll{T}(T, int)"/> instead.
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use SendToAll<T> instead.")]
-        public static bool SendToAll(int msgType, MessageBase msg, int channelId = Channels.DefaultReliable)
-        {
-            if (LogFilter.Debug) Debug.Log("Server.SendToAll id:" + msgType);
-
-            // pack message into byte[] once
-            byte[] bytes = MessagePacker.PackMessage((ushort)msgType, msg);
-
-            // send to all
-            bool result = true;
-            foreach (KeyValuePair<int, NetworkConnectionToClient> kvp in connections)
-            {
-                result &= kvp.Value.Send(new ArraySegment<byte>(bytes), channelId);
-            }
-            return result;
-        }
 
         /// <summary>
         /// Send a message structure with the given type number to all connected clients.
@@ -320,34 +299,6 @@ namespace Mirror
 
                 return result;
             }
-        }
-#if false
-        // Deprecated 03/03/2019
-        /// <summary>
-        /// Obsolete: Use <see cref="SendToReady{T}(NetworkIdentity, T, int)"/> instead.
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use SendToReady<T> instead.")]
-        public static bool SendToReady(NetworkIdentity identity, short msgType, MessageBase msg, int channelId = Channels.DefaultReliable)
-        {
-            if (LogFilter.Debug) Debug.Log("Server.SendToReady msgType:" + msgType);
-
-            if (identity != null && identity.observers != null)
-            {
-                // pack message into byte[] once
-                byte[] bytes = MessagePacker.PackMessage((ushort)msgType, msg);
-
-                // send to all ready observers
-                bool result = true;
-                foreach (KeyValuePair<int, NetworkConnection> kvp in identity.observers)
-                {
-                    if (kvp.Value.isReady)
-                    {
-                        result &= kvp.Value.Send(new ArraySegment<byte>(bytes), channelId);
-                    }
-                }
-                return result;
-            }
-            return false;
         }
 
         /// <summary>
