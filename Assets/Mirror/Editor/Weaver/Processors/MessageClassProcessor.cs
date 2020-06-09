@@ -65,7 +65,7 @@ namespace Mirror.Weaver
             {
                 if (field.FieldType.FullName == td.FullName)
                 {
-                    Weaver.Error($"{td} has field ${field} that references itself");
+                    Weaver.Error($"{td.Name} has field {field.Name} that references itself", field);
                     return;
                 }
             }
@@ -121,7 +121,7 @@ namespace Mirror.Weaver
             }
             else
             {
-                Weaver.Error($"{field} has unsupported type");
+                Weaver.Error($"{field.Name} has unsupported type", field);
             }
         }
 
@@ -204,7 +204,7 @@ namespace Mirror.Weaver
             }
             else
             {
-                Weaver.Error($"{field} has unsupported type");
+                Weaver.Error($"{field.Name} has unsupported type", field);
             }
         }
     }
