@@ -12,11 +12,10 @@ Below is a simple example of assigning a random color to each player when they'r
 
 ```cs
 using UnityEngine;
-using UnityEngine.Networking;
+using Mirror;
 
 public class PlayerController : NetworkBehaviour
 {
-
     [SyncVar(hook = nameof(SetColor))]
     Color playerColor = Color.black;
 
