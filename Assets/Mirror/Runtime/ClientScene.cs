@@ -575,17 +575,16 @@ namespace Mirror
                     Debug.LogWarning("Client spawn handler for " + msg.assetId + " returned null");
                     return null;
                 }
+
+                // Explicit check result from spawn handler
                 NetworkIdentity localObject = obj.GetComponent<NetworkIdentity>();
                 if (localObject == null)
                 {
                     Debug.LogError("Client object spawned for " + msg.assetId + " does not have a network identity");
                     return null;
                 }
-                localObject.Reset();
-
-                if( localObject.assetId == Guid.Empty ) // Wappen: only assign assetId if original is empty to avoid pointless warning message
-                    localObject.assetId = msg.assetId;
-                ApplySpawnPayload(localObject, msg);
+                
+                // Wappen: ApplySpawnPayload will be called after this, no need to call here
                 return localObject;
             }
             else
@@ -732,7 +731,7 @@ namespace Mirror
 
             if (NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity) && identity != null )
             {
-                NetworkReader networkReader = NetworkReaderPool.GetReader(msg.payload))
+                using (PooledNetworkReader networkReader = NetworkReaderPool.GetReader(msg.payload))
                     identity.HandleRPC(msg.componentIndex, msg.functionHash, networkReader, msg.debug);
             }
         }

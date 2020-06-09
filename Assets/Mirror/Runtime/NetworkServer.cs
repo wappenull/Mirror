@@ -1083,7 +1083,7 @@ namespace Mirror
                     // use local values for VR support
                     position = identity.transform.localPosition,
                     rotation = identity.transform.localRotation,
-                    scale = identity.transform.localScale?
+                    scale = identity.transform.localScale,
                     
                     debugName = identity.name
                 };

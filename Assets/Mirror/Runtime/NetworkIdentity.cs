@@ -201,6 +201,12 @@ namespace Mirror
             }
         }
 
+        /// <summary>
+        /// Wappen: Mirror 6 Compatibility, we will still keep this serialized.
+        /// And keep override scene id feature.
+        /// </summary>
+        [SerializeField, HideInInspector] ulong m_SceneId = default;
+
         // keep track of all sceneIds to detect scene duplicates
         static readonly Dictionary<ulong, NetworkIdentity> sceneIds = new Dictionary<ulong, NetworkIdentity>();
 
@@ -369,8 +375,6 @@ namespace Mirror
             bool duplicate = sceneIds.TryGetValue(m_SceneId, out NetworkIdentity existing) && existing != null && existing != this;
             if (m_SceneId == 0 || duplicate)
             {
-                uint nextId;
-
                 // clear in any case, because it might have been a duplicate
                 m_SceneId = 0;
 
@@ -393,7 +397,7 @@ namespace Mirror
                 //Undo.RecordObject(this, "Generated SceneId");
 
                 // generate random sceneId part (0x00000000FFFFFFFF)
-                uint randomId = GetRandomUInt();
+                uint nextId = GetRandomUInt();
 
                 // only assign if not a duplicate of an existing scene id
                 // (small chance, but possible)
@@ -437,7 +441,7 @@ namespace Mirror
             ulong shiftedHash = (ulong)pathHash << 32;
 
             // OR into scene id
-            sceneId = (sceneId & 0xFFFFFFFF) | shiftedHash;
+            m_SceneId = (sceneId & 0xFFFFFFFF) | shiftedHash;
 
             // log it. this is incredibly useful to debug sceneId issues.
             if (LogFilter.Debug) Debug.Log(name + " in scene=" + gameObject.scene.name + " scene index hash(" + pathHash.ToString("X") + ") copied into sceneId: " + sceneId.ToString("X"));
