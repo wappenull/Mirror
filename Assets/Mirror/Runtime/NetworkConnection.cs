@@ -325,7 +325,9 @@ namespace Mirror
 
             MessagePacker.Pack(msg, writer);
             ArraySegment<byte> segment = writer.ToArraySegment();
-            bool result = InvokeHandler(msgType, new NetworkReader(segment), channelId);
+            NetworkReader networkReader = NetworkReaderPool.GetReader(segment);
+            bool result = InvokeHandler(msgType, networkReader, channelId);
+            NetworkReaderPool.Recycle(networkReader);
 
             // recycle writer and return
             NetworkWriterPool.Recycle(writer);
@@ -346,7 +348,7 @@ namespace Mirror
         {
             // unpack message
             NetworkReader reader = new NetworkReader(buffer);
-            if (MessagePacker.UnpackMessage(reader, out int msgType, out string debugName ))
+            if (MessagePacker.UnpackMessage(networkReader, out int msgType, out string debugName))
             {
                 // logging
                 if (logNetworkMessages) Debug.Log("ConnectionRecv " + this + " msgType:" + msgType + " content:" + BitConverter.ToString(buffer.Array, buffer.Offset, buffer.Count));
@@ -362,6 +364,8 @@ namespace Mirror
                 Debug.LogError("Closed connection: " + this + ". Invalid message header.");
                 Disconnect();
             }
+
+            NetworkReaderPool.Recycle(networkReader);
         }
 
         internal void AddOwnedObject(NetworkIdentity obj)
