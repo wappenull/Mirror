@@ -184,7 +184,7 @@ namespace Mirror
         {
             messageHandlers.Remove(msgType);
         }
-
+#if false
         /// <summary>
         /// Obsolete: use <see cref="Send{T}(T, int)"/> instead
         /// </summary>
@@ -195,7 +195,7 @@ namespace Mirror
             byte[] message = MessagePacker.PackMessage(msgType, msg);
             return Send(new ArraySegment<byte>(message), channelId);
         }
-
+#endif
         /// <summary>
         /// This sends a network message with a message ID on the connection. This message is sent on channel zero, which by default is the reliable channel.
         /// </summary>

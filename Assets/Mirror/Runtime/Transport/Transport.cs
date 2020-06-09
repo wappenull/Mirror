@@ -217,5 +217,9 @@ namespace Mirror
             //  really want them to end now and not after next start)
             Shutdown();
         }
+
+        // Wappen: Disconnect reason error extension
+        public System.Net.Sockets.SocketError LastErrorCode;
+        public string LastErrorMessage;
     }
 }

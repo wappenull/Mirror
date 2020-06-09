@@ -224,7 +224,7 @@ namespace Mirror
             Transport.activeTransport.OnClientDisconnected.RemoveListener(OnDisconnected);
             Transport.activeTransport.OnClientError.RemoveListener(OnError);
         }
-
+#if false
         /// <summary>
         /// Obsolete: Use <see cref="Send{T}(T, int)"/> instead with no message id instead
         /// </summary>
@@ -243,7 +243,7 @@ namespace Mirror
             Debug.LogError("NetworkClient Send with no connection");
             return false;
         }
-
+#endif
         /// <summary>
         /// This sends a network message with a message Id to the server. This message is sent on channel zero, which by default is the reliable channel.
         /// <para>The message must be an instance of a class derived from MessageBase.</para>

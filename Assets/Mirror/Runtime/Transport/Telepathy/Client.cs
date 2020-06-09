@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
@@ -55,18 +56,24 @@ namespace Telepathy
             {
                 // Wappen: Resolve DNS and prepare best socket family   
                 // This is also blocking operation so it should be in thread
-                IPAddress targetIp = null;
-                targetIp = _ResolveBestIpInterface( ip );
+                AddressFamily family = _ResolveBestIpInterface( ip );
 
-                if( targetIp == null )
+                if( family == AddressFamily.Unknown )
                 {
                     throw new OperationCanceledException( "No IPAddress suitable for connect for target ip " + ip );
                 }
 
-                client = new TcpClient( targetIp.AddressFamily );
+                client = new TcpClient( family );
 
                 // Wappen Modifying: Use Nonblocking to get rid of Thread Join delay.
-                var result = client.BeginConnect( ip, port, null, null );
+                // incoming IP could be DNS name or IPv6, use IPAddress to check that
+                IPAddress ipa;
+                IAsyncResult result;
+                if( IPAddress.TryParse( ip, out ipa ) ) // Use IPAddress version to connect
+                    result = client.BeginConnect( ipa, port, null, null );
+                else
+                    result = client.BeginConnect( ip, port, null, null );
+
                 while( result.AsyncWaitHandle.WaitOne( 100 ) == false )
                 {
                     if( abortConnect )
@@ -107,9 +114,21 @@ namespace Telepathy
                 // but there is no server running on that ip/port
                 Logger.Log("Client Recv: failed to connect to ip=" + ip + " port=" + port + " reason=" + exception);
 
+                // Prepare extra reason, this is sending from worker thread to main thread
+                byte[] extraDisconnectMessage = null;
+                using( System.IO.MemoryStream ms = new System.IO.MemoryStream( ) )
+                {
+                    using( System.IO.BinaryWriter bw = new System.IO.BinaryWriter( ms ) )
+                    {
+                        bw.Write( (int)exception.SocketErrorCode );
+                        bw.Write( exception.Message );
+                    }
+                    extraDisconnectMessage = ms.ToArray( );
+                }
+
                 // add 'Disconnected' event to message queue so that the caller
                 // knows that the Connect failed. otherwise they will never know
-                receiveQueue.Enqueue(new Message(0, EventType.Disconnected, null));
+                receiveQueue.Enqueue( new Message( 0, EventType.Disconnected, extraDisconnectMessage ) );
             }
             catch (ThreadInterruptedException)
             {
@@ -245,8 +264,9 @@ namespace Telepathy
             return false;
         }
 
-        private static IPAddress _ResolveBestIpInterface( string ip )
+        private static AddressFamily _ResolveBestIpInterface( string ip )
         {
+#if false
             // IPv6: We need to process each of the addresses return from
             //       DNS when trying to connect.
             // Code snippet from https://referencesource.microsoft.com/#system/net/System/Net/Sockets/TCPClient.cs,eeb78642518c5e2d
@@ -258,8 +278,12 @@ namespace Telepathy
                 else if( address.AddressFamily == AddressFamily.InterNetworkV6 && Socket.OSSupportsIPv6 )
                     return address;
             }
-
-            return null;
+#endif
+            // Simple determine by jointer
+            if( Socket.OSSupportsIPv6 )
+                return AddressFamily.InterNetworkV6;
+            else
+                return AddressFamily.InterNetwork;
         }
     }
 }

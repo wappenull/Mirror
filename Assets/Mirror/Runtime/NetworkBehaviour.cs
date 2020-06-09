@@ -25,6 +25,8 @@ namespace Mirror
     {
         internal float lastSyncTime;
 
+        [Header("NetworkBehaviour")]
+
         // hidden because NetworkBehaviourInspector shows it only if has OnSerialize.
         /// <summary>
         /// sync mode for OnSerialize
@@ -192,7 +194,7 @@ namespace Mirror
                 return;
             }
             // local players can always send commands, regardless of authority, other objects must have authority.
-            if (!(isLocalPlayer || hasAuthority))
+            if (!(isLocalPlayer || hasAuthority || isServer)) // Wappen: Fix for Mirror3->6
             {
                 Debug.LogWarning($"Trying to send command for object without authority. {invokeClass.ToString()}.{cmdName}");
                 return;
@@ -652,7 +654,8 @@ namespace Mirror
             return false;
         }
 
-        internal bool IsDirty()
+        // Wappen: Changed to virtual
+        public virtual bool IsDirty()
         {
             if (Time.time - lastSyncTime >= syncInterval)
             {

@@ -998,14 +998,16 @@ namespace Mirror
         {
             if (!NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity))
             {
-                Debug.LogWarning("Spawned object not found when handling Command message [netId=" + msg.netId + "]");
+                Debug.LogWarning("Spawned object not found when handling Command message [netId=" + msg.netId + "]" + $" cmd: {msg.debug}");
                 return;
             }
 
             // Commands can be for player objects, OR other objects with client-authority
             // -> so if this connection's controller has a different netId then
             //    only allow the command if clientAuthorityOwner
-            if (identity.connectionToClient != conn)
+            // -> (Wappen extension) Allow server to call CMD on both server objects and client objects. Server is god.
+            bool isServer = NetworkServer.active;
+            if (identity.connectionToClient != conn && !isServer)
             {
                 Debug.LogWarning("Command for object without authority [netId=" + msg.netId + "]");
                 return;
@@ -1031,11 +1033,6 @@ namespace Mirror
             }
             identity.Reset();
             identity.connectionToClient = (NetworkConnectionToClient)ownerConnection;
-
-            if( ownerConnection == null )
-            {
-                Debug.LogWarning( "Spawn call with no owner connection, it could fuck up server logic!", obj );
-            }
 
             // special case to make sure hasAuthority is set
             // on start server in host mode
@@ -1222,7 +1219,7 @@ namespace Mirror
                 SpawnObject(obj, ownerConnection);
             }
         }
-
+#if false // Changed to use override sceneId instead
         /// <summary>
         /// Custom routine without VerifyCanSpawn.
         /// Client must handle this by RegisterSpawnHandler.
@@ -1237,7 +1234,7 @@ namespace Mirror
             }
             SpawnObject( obj, ownerConnection );
         }
-
+#endif
         static void DestroyObject(NetworkIdentity identity, bool destroyServerObject)
         {
             if (LogFilter.Debug) Debug.Log("DestroyObject instance:" + identity.netId);

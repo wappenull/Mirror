@@ -28,10 +28,26 @@ namespace Mirror.Weaver
             Weaver.DLog(td, "MessageClassProcessor Done");
         }
 
+        static MethodDefinition _FindMethodInMessage( TypeDefinition td, string methodName )
+        {
+            MethodDefinition method = td.Methods.FirstOrDefault(md => md.Name == methodName);
+
+            // Wappen Hot fix: Also try base class
+            TypeDefinition baseTd = td.BaseType?.Resolve( );
+            while( method == null && baseTd != null )
+            {
+                if( baseTd.FullName == "Mirror.MessageBase" || baseTd.FullName == "Mirror.IMessageBase" )
+                    break; // We will not use function from MessageBase layer
+                method = baseTd.Methods.FirstOrDefault(md => md.Name == methodName);
+            }
+
+            return method;
+        }
+
         static void GenerateSerialization(TypeDefinition td)
         {
             Weaver.DLog(td, "  GenerateSerialization");
-            MethodDefinition existingMethod = td.Methods.FirstOrDefault(md => md.Name == "Serialize");
+            MethodDefinition existingMethod = _FindMethodInMessage( td, "Serialize" );
             if (existingMethod != null && !existingMethod.Body.IsEmptyDefault())
             {
                 return;
@@ -108,7 +124,7 @@ namespace Mirror.Weaver
         static void GenerateDeSerialization(TypeDefinition td)
         {
             Weaver.DLog(td, "  GenerateDeserialization");
-            MethodDefinition existingMethod = td.Methods.FirstOrDefault(md => md.Name == "Deserialize");
+            MethodDefinition existingMethod = _FindMethodInMessage( td, "Deserialize" );
             if (existingMethod != null && !existingMethod.Body.IsEmptyDefault())
             {
                 return;

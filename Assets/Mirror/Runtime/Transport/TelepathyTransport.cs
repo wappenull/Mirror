@@ -100,6 +100,26 @@ namespace Mirror
                         OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data), Channels.DefaultReliable);
                         break;
                     case Telepathy.EventType.Disconnected:
+                        // Wappen: I dont want to modify OnClientDisconnected event type, 
+                        // error message will have to tug in here, before firing disconnect message
+                        if( message.data != null )
+                        {
+                            using( System.IO.MemoryStream ms = new System.IO.MemoryStream( message.data ) )
+                            {
+                                using( System.IO.BinaryReader br = new System.IO.BinaryReader( ms ) )
+                                {
+                                    // Read things exactly what we modified in Client.cs
+                                    LastErrorCode = (SocketError)br.ReadInt32( );
+                                    LastErrorMessage = br.ReadString( );
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Something irrelevent, I just pick some SocketError
+                            LastErrorCode = SocketError.NotConnected;
+                            LastErrorMessage = "Unknown disconnect.";
+                        }
                         OnClientDisconnected.Invoke();
                         break;
                     default:
@@ -177,13 +197,13 @@ namespace Mirror
         private System.Collections.IEnumerator _DelayDispatchServerData( float clientSimulatedDelay, Message message )
         {
             yield return new WaitForSecondsRealtime( clientSimulatedDelay );
-            OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data));
+            OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data), Channels.DefaultReliable);
         }
 
         private System.Collections.IEnumerator _DelayDispatchClientData( float clientSimulatedDelay, Message message )
         {
             yield return new WaitForSecondsRealtime( clientSimulatedDelay );
-            OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data));
+            OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data), Channels.DefaultReliable);
         }
 
 
