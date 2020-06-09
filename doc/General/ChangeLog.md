@@ -1,15 +1,18 @@
 # Change Log
 
-**Mirror is published to the Asset Store at the start of every month, unless some critical issue causes a delay.**
+**Mirror is published to the [Asset Store](https://assetstore.unity.com/packages/tools/network/mirror-129321) at the start of every month, unless some critical issue causes a delay.**
 
 Mirror uses semantic versioning, and the versions shown here are those that were published to the Asset Store, and occasionally major version bumps happen mid-month between store submissions and are therefore not individually shown here.
 
 ## Version 12.x.x -- In Progress
 - Added: [NetworkMatchChecker](../Components/NetworkMatchChecker.md) component. Use this component to create many concurrent isolated matches within a single game server.
 - Added: [SyncLists](../Guides/Sync/SyncLists.md) now have Find and FindAll functions.
+- Added: NetworkBehaviour now has OnStopServer and OnStopClient virtual methods
 - Added: Weaver now supports custom Reader & Writer for types in other assemblies
+- Added: Network Manager now has an optional setting to check for and disconnect remote connections that have gone silent for a specified interval.
 - Fixed: NetworkAnimator no longer double-fires SetTrigger / ResetTrigger on the host client
 - Fixed: Destroy is no longer invoked twice on the server for the player object.
+- Changed: NetworkBehaviour: `OnNetworkDestroy` was renamed to `OnStopClient`.
 - Changed: **Breaking** NetworkBehaviour: `OnRebuildObservers`, `OnCheckObserver`, and `OnSetHostVisibility` were moved to a separate class called `NetworkVisibility`
 
 ## Version 11.4.2 - 2020-Apr-03

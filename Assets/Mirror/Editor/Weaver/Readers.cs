@@ -363,6 +363,7 @@ namespace Mirror.Weaver
                 if (ctor == null)
                 {
                     Weaver.Error($"{variable} can't be deserialized because it has no default constructor");
+                    return;
                 }
 
                 MethodReference ctorRef = Weaver.CurrentAssembly.MainModule.ImportReference(ctor);
@@ -378,6 +379,9 @@ namespace Mirror.Weaver
             foreach (FieldDefinition field in variable.Resolve().Fields)
             {
                 if (field.IsStatic || field.IsPrivate)
+                    continue;
+
+                if (field.IsNotSerialized)
                     continue;
 
                 // mismatched ldloca/ldloc for struct/class combinations is invalid IL, which causes crash at runtime

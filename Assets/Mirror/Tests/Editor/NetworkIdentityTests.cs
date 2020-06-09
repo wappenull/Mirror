@@ -136,6 +136,18 @@ namespace Mirror.Tests
 
         }
 
+        class SetHostVisibilityNetworkBehaviour : NetworkVisibility
+        {
+            public int called;
+            public override void OnRebuildObservers(HashSet<NetworkConnection> observers, bool initialize) { }
+            public override bool OnCheckObserver(NetworkConnection conn) { return true; }
+            public override void OnSetHostVisibility(bool visible)
+            {
+                ++called;
+                base.OnSetHostVisibility(visible);
+            }
+        }
+
         class CheckObserverExceptionNetworkBehaviour : NetworkVisibility
         {
             public int called;
@@ -1215,15 +1227,7 @@ namespace Mirror.Tests
             identity.connectionToServer = new NetworkConnectionToServer();
             identity.observers[43] = new NetworkConnectionToClient(2);
 
-            // calling reset shouldn't do anything unless it was marked for reset
-            identity.Reset();
-            Assert.That(identity.isClient, Is.True);
-            Assert.That(identity.netId, Is.EqualTo(netId));
-            Assert.That(identity.connectionToClient, !Is.Null);
-            Assert.That(identity.connectionToServer, !Is.Null);
-
             // mark for reset and reset
-            identity.MarkForReset();
             identity.Reset();
             Assert.That(identity.isClient, Is.False);
             Assert.That(identity.netId, Is.EqualTo(0));
@@ -1788,5 +1792,17 @@ namespace Mirror.Tests
             Assert.That(mask, Is.EqualTo(0UL));
         }
 
+        [Test]
+        public void OnSetHostVisibilityBaseTest()
+        {
+            SpriteRenderer renderer;
+
+            renderer = gameObject.AddComponent<SpriteRenderer>();
+            SetHostVisibilityNetworkBehaviour comp = gameObject.AddComponent<SetHostVisibilityNetworkBehaviour>();
+            comp.OnSetHostVisibility(false);
+
+            Assert.That(comp.called, Is.EqualTo(1));
+            Assert.That(renderer.enabled, Is.False);
+        }
     }
 }

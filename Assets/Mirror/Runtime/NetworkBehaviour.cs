@@ -839,11 +839,19 @@ namespace Mirror
             }
         }
 
+        internal void ResetSyncObjects()
+        {
+            foreach (SyncObject syncObject in syncObjects)
+            {
+                syncObject.Reset();
+            }
+        }
+
+        // Deprecated 04/20/2020
         /// <summary>
-        /// Obsolete, use OnStopClient instead
+        /// Obsolete: Use <see cref="OnStopClient()"/> instead
         /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("Use OnStopClient instead")]
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Override OnStopClient() instead")]
         public virtual void OnNetworkDestroy() { }
 
         /// <summary>
