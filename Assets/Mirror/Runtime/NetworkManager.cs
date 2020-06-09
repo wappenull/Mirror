@@ -301,6 +301,10 @@ namespace Mirror
 
             // start listening to network connections
             NetworkServer.Listen(maxConnections);
+            
+            // Wappen: Reorder to run before OnStartServer, so OnStartServer can override default handlers.
+            // this must be after Listen(), since that registers the default message handlers
+            RegisterServerMessages();
 
             // call OnStartServer AFTER Listen, so that NetworkServer.active is
             // true and we can call NetworkServer.Spawn in OnStartServer
@@ -312,9 +316,7 @@ namespace Mirror
             //       and we don't start processing connects until Update.
             OnStartServer();
 
-            // this must be after Listen(), since that registers the default message handlers
-            RegisterServerMessages();
-
+            if (LogFilter.Debug) Debug.Log("NetworkManager StartServer");
             isNetworkActive = true;
         }
 

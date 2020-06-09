@@ -263,6 +263,8 @@ namespace Mirror
         public uint netId;
         public int componentIndex;
         public int functionHash;
+        public string debug; // Added by Wappen
+
         // the parameters for the Cmd function
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
@@ -272,6 +274,7 @@ namespace Mirror
             netId = reader.ReadPackedUInt32();
             componentIndex = (int)reader.ReadPackedUInt32();
             functionHash = reader.ReadInt32(); // hash is always 4 full bytes, WritePackedInt would send 1 extra byte here
+            debug = reader.ReadString( );
             payload = reader.ReadBytesAndSizeSegment();
         }
 
@@ -280,6 +283,7 @@ namespace Mirror
             writer.WritePackedUInt32(netId);
             writer.WritePackedUInt32((uint)componentIndex);
             writer.WriteInt32(functionHash);
+            writer.WriteString(debug);
             writer.WriteBytesAndSizeSegment(payload);
         }
     }
@@ -289,6 +293,8 @@ namespace Mirror
         public uint netId;
         public int componentIndex;
         public int functionHash;
+        public string debug;
+
         // the parameters for the Cmd function
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
@@ -298,6 +304,7 @@ namespace Mirror
             netId = reader.ReadPackedUInt32();
             componentIndex = (int)reader.ReadPackedUInt32();
             functionHash = reader.ReadInt32(); // hash is always 4 full bytes, WritePackedInt would send 1 extra byte here
+            debug = reader.ReadString();
             payload = reader.ReadBytesAndSizeSegment();
         }
 
@@ -306,6 +313,7 @@ namespace Mirror
             writer.WritePackedUInt32(netId);
             writer.WritePackedUInt32((uint)componentIndex);
             writer.WriteInt32(functionHash);
+            writer.WriteString(debug);
             writer.WriteBytesAndSizeSegment(payload);
         }
     }
@@ -315,6 +323,8 @@ namespace Mirror
         public uint netId;
         public int componentIndex;
         public int functionHash;
+        public string debug;
+
         // the parameters for the Cmd function
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
@@ -324,6 +334,7 @@ namespace Mirror
             netId = reader.ReadPackedUInt32();
             componentIndex = (int)reader.ReadPackedUInt32();
             functionHash = reader.ReadInt32(); // hash is always 4 full bytes, WritePackedInt would send 1 extra byte here
+            debug = reader.ReadString();
             payload = reader.ReadBytesAndSizeSegment();
         }
 
@@ -332,6 +343,7 @@ namespace Mirror
             writer.WritePackedUInt32(netId);
             writer.WritePackedUInt32((uint)componentIndex);
             writer.WriteInt32(functionHash);
+            writer.WriteString(debug);
             writer.WriteBytesAndSizeSegment(payload);
         }
     }
@@ -348,6 +360,8 @@ namespace Mirror
         public Vector3 position;
         public Quaternion rotation;
         public Vector3 scale;
+        public string debugName;
+
         // the serialized component data
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
@@ -358,13 +372,15 @@ namespace Mirror
             isLocalPlayer = reader.ReadBoolean();
             isOwner = reader.ReadBoolean();
             sceneId = reader.ReadPackedUInt64();
-            if (sceneId == 0)
+            //if (sceneId == 0)
             {
-                assetId = reader.ReadGuid();
+                assetId = reader.ReadGuid(); // Wappen: Change to include Guid
             }
             position = reader.ReadVector3();
             rotation = reader.ReadQuaternion();
             scale = reader.ReadVector3();
+            debugName = reader.ReadString();
+
             payload = reader.ReadBytesAndSizeSegment();
         }
 
@@ -374,13 +390,15 @@ namespace Mirror
             writer.WriteBoolean(isLocalPlayer);
             writer.WriteBoolean(isOwner);
             writer.WritePackedUInt64(sceneId);
-            if (sceneId == 0)
+            //if (sceneId == 0) 
             {
-                writer.WriteGuid(assetId);
+                writer.WriteGuid(assetId); // Wappen: Change to include Guid
             }
             writer.WriteVector3(position);
             writer.WriteQuaternion(rotation);
             writer.WriteVector3(scale);
+            writer.WriteString(debugName);
+
             writer.WriteBytesAndSizeSegment(payload);
         }
     }

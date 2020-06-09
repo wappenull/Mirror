@@ -93,7 +93,15 @@ namespace Mirror
         /// A unique identifier for NetworkIdentity objects within a scene.
         /// <para>This is used for spawning scene objects on clients.</para>
         /// </summary>
-        public ulong sceneId => m_SceneId;
+        public ulong sceneId
+        {
+            get // Wappen extension: return runtimeSceneId if available (override)
+            {
+                if( overrideSceneId != 0 )
+                    return overrideSceneId;
+                return m_SceneId;
+            }
+        }
 
         /// <summary>
         /// Flag to make this object only exist when the game is running as a server (or host).
@@ -133,6 +141,11 @@ namespace Mirror
         }
 
         /// <summary>
+        /// Wappen extension, check if this is owned by server
+        /// </summary>
+        public bool isServerAuthority => connectionToClient == null && isServer;
+
+        /// <summary>
         /// All spawned NetworkIdentities by netId. Available on server and client.
         /// </summary>
         public static readonly Dictionary<uint, NetworkIdentity> spawned = new Dictionary<uint, NetworkIdentity>();
@@ -162,6 +175,10 @@ namespace Mirror
                 if (string.IsNullOrEmpty(m_AssetId))
                     SetupIDs();
 #endif
+                // Wappen Extension, return override assetId if we have one
+                if( overrideAssetId != Guid.Empty )
+                    return overrideAssetId;
+
                 // convert string to Guid and use .Empty to avoid exception if
                 // we would use 'new Guid("")'
                 return string.IsNullOrEmpty(m_AssetId) ? Guid.Empty : new Guid(m_AssetId);
@@ -266,26 +283,9 @@ namespace Mirror
 
 #if UNITY_EDITOR
         void AssignAssetID(GameObject prefab) => AssignAssetID(AssetDatabase.GetAssetPath(prefab));
-        void AssignAssetID(string path) => m_AssetId = AssetDatabase.AssetPathToGUID(path);
-
-        bool ThisIsAPrefab() => PrefabUtility.IsPartOfPrefabAsset(gameObject);
-
-        bool ThisIsASceneObjectWithPrefabParent(out GameObject prefab)
+        void AssignAssetID(string path)
         {
-            prefab = null;
-
-            if (!PrefabUtility.IsPartOfPrefabInstance(gameObject))
-            {
-                return false;
-            }
-            prefab = PrefabUtility.GetCorrespondingObjectFromSource(gameObject);
-
-            if (prefab == null)
-            {
-                Debug.LogError("Failed to find prefab parent for scene object [name:" + gameObject.name + "]");
-                return false;
-            }
-            return true;
+            m_AssetId = AssetDatabase.AssetPathToGUID(path);
         }
 
         static uint GetRandomUInt()
@@ -298,6 +298,8 @@ namespace Mirror
                 return BitConverter.ToUInt32(bytes, 0);
             }
         }
+
+
 
         // persistent sceneId assignment
         // (because scene objects have no persistent unique ID in Unity)
@@ -352,11 +354,14 @@ namespace Mirror
                 return;
 
             // no valid sceneId yet, or duplicate?
+            ulong previousId = m_SceneId;
             bool duplicate = sceneIds.TryGetValue(m_SceneId, out NetworkIdentity existing) && existing != null && existing != this;
             if (m_SceneId == 0 || duplicate)
             {
+                uint nextId;
+
                 // clear in any case, because it might have been a duplicate
-                m_SceneId = 0;
+                nextId = 0;
 
                 // if a scene was never opened and we are building it, then a
                 // sceneId would be assigned to build but not saved in editor,
@@ -374,17 +379,22 @@ namespace Mirror
                 // upgrading would be very difficult.
                 // -> Undo.RecordObject is the new EditorUtility.SetDirty!
                 // -> we need to call it before changing.
-                Undo.RecordObject(this, "Generated SceneId");
+                //Undo.RecordObject(this, "Generated SceneId");
 
                 // generate random sceneId part (0x00000000FFFFFFFF)
                 uint randomId = GetRandomUInt();
 
                 // only assign if not a duplicate of an existing scene id
                 // (small chance, but possible)
-                duplicate = sceneIds.TryGetValue(randomId, out existing) && existing != null && existing != this;
+                duplicate = sceneIds.TryGetValue(nextId, out existing) && existing != null && existing != this;
                 if (!duplicate)
                 {
-                    m_SceneId = randomId;
+                    if( previousId != nextId )
+                    {
+                        Undo.RecordObject(this, "Generated SceneId");
+                    }
+
+                    m_SceneId = nextId;
                     //Debug.Log(name + " in scene=" + gameObject.scene.name + " sceneId assigned to: " + m_SceneId.ToString("X"));
                 }
             }
@@ -424,51 +434,130 @@ namespace Mirror
 
         void SetupIDs()
         {
-            if (ThisIsAPrefab())
+            // New simple rules:
+            // - NetworkIdentity MUST be on prefab root in order to have m_AssetId, else zero
+            // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
+
+            var prop = Wappen.Editor.PrefabHelper.GetPrefabProperties( gameObject );
+                
+            // Determine m_SceneId
+            if( prop.isSceneObject )
             {
-                m_SceneId = 0; // force 0 for prefabs
-                AssignAssetID(gameObject);
-            }
-            // are we currently in prefab editing mode? aka prefab stage
-            // => check prefabstage BEFORE SceneObjectWithPrefabParent
-            //    (fixes https://github.com/vis2k/Mirror/issues/976)
-            // => if we don't check GetCurrentPrefabStage and only check
-            //    GetPrefabStage(gameObject), then the 'else' case where we
-            //    assign a sceneId and clear the assetId would still be
-            //    triggered for prefabs. in other words: if we are in prefab
-            //    stage, do not bother with anything else ever!
-            else if (PrefabStageUtility.GetCurrentPrefabStage() != null)
-            {
-                // when modifying a prefab in prefab stage, Unity calls
-                // OnValidate for that prefab and for all scene objects based on
-                // that prefab.
-                //
-                // is this GameObject the prefab that we modify, and not just a
-                // scene object based on the prefab?
-                //   * GetCurrentPrefabStage = 'are we editing ANY prefab?'
-                //   * GetPrefabStage(go) = 'are we editing THIS prefab?'
-                if (PrefabStageUtility.GetPrefabStage(gameObject) != null)
-                {
-                    m_SceneId = 0; // force 0 for prefabs
-                    //Debug.Log(name + " @ scene: " + gameObject.scene.name + " sceneid reset to 0 because CurrentPrefabStage=" + PrefabStageUtility.GetCurrentPrefabStage() + " PrefabStage=" + PrefabStageUtility.GetPrefabStage(gameObject));
-                    // NOTE: might make sense to use GetPrefabStage for asset
-                    //       path, but let's not touch it while it works.
-                    string path = PrefabStageUtility.GetCurrentPrefabStage().prefabAssetPath;
-                    AssignAssetID(path);
-                }
-            }
-            else if (ThisIsASceneObjectWithPrefabParent(out GameObject prefab))
-            {
-                AssignSceneID();
-                AssignAssetID(prefab);
+                // This NetworkIdentity is placed in scene
+                // Could be nested inside another prefab or not.
+                AssignStableSceneID();
             }
             else
             {
-                AssignSceneID();
+                // Non scene object, 
+                m_SceneId = 0; // force 0 for prefabs
+            }
+
+            // Also when instantiating real prefab into scene on runtime (e.g., map generator)
+            // Old Mirror logic will use outermost prefab as asset ID which is limitation
+            // We will make exception that NetworkIdentity must be on root level of prefab in order to have asset ID
+            if( prop.isRootOfAnyPrefab )
+            {
+                // Yes, this NetworkIdentity is on prefab asset itself
+                AssignAssetID( prop.prefabAssetPath );
+            }
+            else if( prop.isPartOfAnyPrefab )
+            {
+                // Wappen: Allow NetworkIdentity in children as long as it does not nested in other NetworkIdentity
+                //Debug.LogWarning( $"Mirror Check: Network Identity on {this.name} is not on root (should not be under part of prefab)", this );
+                m_AssetId = "";
+            }
+            else
+            {
+                // No, this NetworkIdentity is not on valid unity prefab asset gameObject
+                // Dont bother assign asset ID
                 m_AssetId = "";
             }
         }
 #endif
+        /* Wappen Extension /////////////////////////////////*/
+
+        private void AssignStableSceneID( )
+        {
+            bool duplicate = _CheckSceneIdDup( m_SceneId );
+            if( m_SceneId == 0 || duplicate )
+            {
+                ulong nextId = GetSceneIdByPath( gameObject );
+                if( nextId != m_SceneId )
+                {
+                    while( _CheckSceneIdDup( nextId ) ) ++nextId; // Collision avoidance
+#if UNITY_EDITOR
+                    if( !Application.isPlaying )
+                    {
+                        UnityEditor.Undo.RecordObject( this, "AssignStableSceneID" );
+                    }
+#endif
+                    m_SceneId = nextId;
+                }
+            }
+            _CommitSceneId( m_SceneId );
+        }
+
+        private bool _CheckSceneIdDup( ulong id )
+        {
+            return sceneIds.TryGetValue( id, out NetworkIdentity existing ) && existing != null && existing != this;
+        }
+
+        private void _CommitSceneId( ulong id )
+        {
+            sceneIds[id] = this;
+        }
+
+        /// <summary>
+        /// Scene ID implementation by Wappen.
+        /// </summary>
+        public static uint GetSceneIdByPath( GameObject g )
+        {
+            return (uint)StringHash.GetStableHashCode( GetScenePathForHash( g ) );
+        }
+
+        /// <summary>
+        /// Scene ID implementation by Wappen.
+        /// Use scene path, it could vulnerable to dupe node name.
+        /// But ok for now
+        /// </summary>
+        public static string GetScenePathForHash( GameObject g )
+        {
+            // Format
+            // SceneName:/parent/parent/NodeName
+            string scenePath = $"{g.scene.name}:/";
+            string nodePath = g.name;
+            Transform node = g.transform.parent;
+            while( node != null )
+            {
+                nodePath = $"{node.name}/{nodePath}"; // Prepend
+                node = node.parent;
+            }
+
+            return scenePath + nodePath;
+        }
+
+        private uint overrideSceneId;
+        private Guid overrideAssetId;
+
+        /// <summary>
+        /// Set override. To clear it set 0.
+        /// </summary>
+        public void SetOverrideSceneId( uint id )
+        {
+            overrideSceneId = id;
+        }
+
+        /// <summary>
+        /// Set override. To clear it set Guid.Empty.
+        /// </summary>
+        public void SetOverrideAssetId( Guid g )
+        {
+            overrideAssetId = g;
+        }
+
+
+        /* End Wappen extension ////////////////////////////*/
 
         void OnDestroy()
         {
@@ -806,7 +895,7 @@ namespace Mirror
         }
 
         // helper function to handle SyncEvent/Command/Rpc
-        void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader)
+        void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader, string debugName)
         {
             if (gameObject == null)
             {
@@ -820,7 +909,7 @@ namespace Mirror
                 NetworkBehaviour invokeComponent = NetworkBehaviours[componentIndex];
                 if (!invokeComponent.InvokeHandlerDelegate(functionHash, invokeType, reader))
                 {
-                    Debug.LogError("Found no receiver for incoming " + invokeType + " [" + functionHash + "] on " + gameObject + ",  the server and client should have the same NetworkBehaviour instances [netId=" + netId + "].");
+                    Debug.LogError("Found no receiver for incoming " + invokeType + " [" + debugName + "] on " + gameObject + ",  the server and client should have the same NetworkBehaviour instances [netId=" + netId + "].");
                 }
             }
             else
@@ -830,21 +919,21 @@ namespace Mirror
         }
 
         // happens on client
-        internal void HandleSyncEvent(int componentIndex, int eventHash, NetworkReader reader)
+        internal void HandleSyncEvent(int componentIndex, int eventHash, NetworkReader reader, string debugName)
         {
-            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader);
+            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader, debugName);
         }
 
         // happens on server
-        internal void HandleCommand(int componentIndex, int cmdHash, NetworkReader reader)
+        internal void HandleCommand(int componentIndex, int cmdHash, NetworkReader reader, string debugName)
         {
-            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader);
+            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader, debugName);
         }
 
         // happens on client
-        internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader)
+        internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader, string debugName )
         {
-            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader);
+            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader, debugName);
         }
 
         internal void OnUpdateVars(NetworkReader reader, bool initialState)

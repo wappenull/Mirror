@@ -251,7 +251,7 @@ namespace Mirror
             }
             return false;
         }
-
+#if false
         /// <summary>
         /// Obsolete: Use <see cref="SendToAll{T}(T, int)"/> instead.
         /// </summary>
@@ -271,7 +271,7 @@ namespace Mirror
             }
             return result;
         }
-
+#endif
         /// <summary>
         /// Send a message structure with the given type number to all connected clients.
         /// <para>This applies to clients that are ready and not-ready.</para>
@@ -315,7 +315,7 @@ namespace Mirror
             NetworkWriterPool.Recycle(writer);
             return result;
         }
-
+#if false
         /// <summary>
         /// Obsolete: Use <see cref="SendToReady{T}(NetworkIdentity, T, int)"/> instead.
         /// </summary>
@@ -342,7 +342,7 @@ namespace Mirror
             }
             return false;
         }
-
+#endif
         /// <summary>
         /// Send a message structure with the given type number to only clients which are ready.
         /// <para>See Networking.NetworkClient.Ready.</para>
@@ -637,7 +637,7 @@ namespace Mirror
         {
             handlers.Clear();
         }
-
+#if false
         /// <summary>
         /// Obsolete: Use <see cref="SendToClient{T}(int, T)"/> instead.
         /// </summary>
@@ -651,7 +651,7 @@ namespace Mirror
             }
             Debug.LogError("Failed to send message to connection ID '" + connectionId + ", not found in connection list");
         }
-
+#endif
         /// <summary>
         /// Send a message to the client which owns the given connection ID.
         /// <para>It accepts the connection ID as a parameter as well as a message and MsgType. Remember to set the client up for receiving the messages by using NetworkClient.RegisterHandler. Also, for user messages you must use a MsgType with a higher ID number than MsgType.Highest.</para>
@@ -669,7 +669,7 @@ namespace Mirror
             }
             Debug.LogError("Failed to send message to connection ID '" + connectionId + ", not found in connection list");
         }
-
+#if false
         /// <summary>
         /// Obsolete: Use <see cref="SendToClientOfPlayer{T}(NetworkIdentity, T)"/> instead.
         /// </summary>
@@ -685,7 +685,7 @@ namespace Mirror
                 Debug.LogError("SendToClientOfPlayer: player has no NetworkIdentity: " + identity.name);
             }
         }
-
+#endif
         /// <summary>
         /// send this message to the player only
         /// </summary>
@@ -998,21 +998,23 @@ namespace Mirror
         {
             if (!NetworkIdentity.spawned.TryGetValue(msg.netId, out NetworkIdentity identity))
             {
-                Debug.LogWarning("Spawned object not found when handling Command message [netId=" + msg.netId + "]");
+                Debug.LogWarning("Spawned object not found when handling Command message [netId=" + msg.netId + "]" + $" cmd: {msg.debug}");
                 return;
             }
 
             // Commands can be for player objects, OR other objects with client-authority
             // -> so if this connection's controller has a different netId then
             //    only allow the command if clientAuthorityOwner
-            if (identity.connectionToClient != conn)
+            // -> (Wappen extension) Allow server to call CMD on both server objects and client objects. Server is god.
+            bool isServer = NetworkServer.active;
+            if (identity.connectionToClient != conn && !isServer)
             {
                 Debug.LogWarning("Command for object without authority [netId=" + msg.netId + "]");
                 return;
             }
 
             if (LogFilter.Debug) Debug.Log("OnCommandMessage for netId=" + msg.netId + " conn=" + conn);
-            identity.HandleCommand(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload));
+            identity.HandleCommand(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload), msg.debug);
         }
 
         internal static void SpawnObject(GameObject obj, NetworkConnection ownerConnection)
@@ -1074,7 +1076,9 @@ namespace Mirror
                 // use local values for VR support
                 position = identity.transform.localPosition,
                 rotation = identity.transform.localRotation,
-                scale = identity.transform.localScale
+                scale = identity.transform.localScale,
+
+                debugName = identity.name
             };
 
             // use owner segment if 'conn' owns this identity, otherwise
@@ -1176,7 +1180,7 @@ namespace Mirror
 
             Spawn(obj, identity.connectionToClient);
         }
-
+#if false
         /// <summary>
         /// Use <see cref="Spawn(GameObject, NetworkConnection)"/> instead
         /// </summary>
@@ -1196,7 +1200,7 @@ namespace Mirror
             Spawn(obj, assetId, ownerConnection);
             return true;
         }
-
+#endif
         /// <summary>
         /// This spawns an object like NetworkServer.Spawn() but also assigns Client Authority to the specified client.
         /// <para>This is the same as calling NetworkIdentity.AssignClientAuthority on the spawned object.</para>
@@ -1215,7 +1219,22 @@ namespace Mirror
                 SpawnObject(obj, ownerConnection);
             }
         }
-
+#if false // Changed to use override sceneId instead
+        /// <summary>
+        /// Custom routine without VerifyCanSpawn.
+        /// Client must handle this by RegisterSpawnHandler.
+        /// </summary>
+        public static void SpawnWithCustomGuid( GameObject obj, Guid assetId, NetworkConnection ownerConnection = null )
+        {
+            // Assumes obj contains 1 NetworkIdentity
+            // Assumes NetworkIdentity.assetId is set prior to this
+            if( GetNetworkIdentity( obj, out NetworkIdentity identity ) )
+            {
+                identity.assetId = assetId;
+            }
+            SpawnObject( obj, ownerConnection );
+        }
+#endif
         static void DestroyObject(NetworkIdentity identity, bool destroyServerObject)
         {
             if (LogFilter.Debug) Debug.Log("DestroyObject instance:" + identity.netId);

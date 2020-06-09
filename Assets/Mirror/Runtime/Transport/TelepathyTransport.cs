@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Net.Sockets;
+using Telepathy;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -32,6 +33,9 @@ namespace Mirror
 
         [Tooltip("Protect against allocation attacks by keeping the max message size small. Otherwise an attacker host might send multiple fake packets with 2GB headers, causing the connected clients to run out of memory after allocating multiple large packets.")]
         [FormerlySerializedAs("MaxMessageSize")] public int clientMaxMessageSize = 16 * 1024;
+
+        [Header("Editor only")]
+        public float clientSimulatedDelay = 0f;
 
         protected Telepathy.Client client = new Telepathy.Client();
         protected Telepathy.Server server = new Telepathy.Server();
@@ -88,9 +92,34 @@ namespace Mirror
                         OnClientConnected.Invoke();
                         break;
                     case Telepathy.EventType.Data:
+#if UNITY_EDITOR
+                        if( clientSimulatedDelay > 0 )
+                            StartCoroutine( _DelayDispatchClientData( clientSimulatedDelay, message ) );
+                        else
+#endif
                         OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data), Channels.DefaultReliable);
                         break;
                     case Telepathy.EventType.Disconnected:
+                        // Wappen: I dont want to modify OnClientDisconnected event type, 
+                        // error message will have to tug in here, before firing disconnect message
+                        if( message.data != null )
+                        {
+                            using( System.IO.MemoryStream ms = new System.IO.MemoryStream( message.data ) )
+                            {
+                                using( System.IO.BinaryReader br = new System.IO.BinaryReader( ms ) )
+                                {
+                                    // Read things exactly what we modified in Client.cs
+                                    LastErrorCode = (SocketError)br.ReadInt32( );
+                                    LastErrorMessage = br.ReadString( );
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Something irrelevent, I just pick some SocketError
+                            LastErrorCode = SocketError.NotConnected;
+                            LastErrorMessage = "Unknown disconnect.";
+                        }
                         OnClientDisconnected.Invoke();
                         break;
                     default:
@@ -145,6 +174,11 @@ namespace Mirror
                         OnServerConnected.Invoke(message.connectionId);
                         break;
                     case Telepathy.EventType.Data:
+#if UNITY_EDITOR
+                        if( clientSimulatedDelay > 0 )
+                            StartCoroutine( _DelayDispatchServerData( clientSimulatedDelay, message ) );
+                        else
+#endif
                         OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data), Channels.DefaultReliable);
                         break;
                     case Telepathy.EventType.Disconnected:
@@ -159,6 +193,20 @@ namespace Mirror
             }
             return false;
         }
+
+        private System.Collections.IEnumerator _DelayDispatchServerData( float clientSimulatedDelay, Message message )
+        {
+            yield return new WaitForSecondsRealtime( clientSimulatedDelay );
+            OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data), Channels.DefaultReliable);
+        }
+
+        private System.Collections.IEnumerator _DelayDispatchClientData( float clientSimulatedDelay, Message message )
+        {
+            yield return new WaitForSecondsRealtime( clientSimulatedDelay );
+            OnClientDataReceived.Invoke(new ArraySegment<byte>(message.data), Channels.DefaultReliable);
+        }
+
+
         public override bool ServerDisconnect(int connectionId) => server.Disconnect(connectionId);
         public override string ServerGetClientAddress(int connectionId)
         {

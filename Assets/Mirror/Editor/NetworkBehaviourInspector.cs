@@ -179,8 +179,9 @@ namespace Mirror
                 if (networkBehaviour != null)
                 {
                     // syncMode
-                    serializedObject.FindProperty("syncMode").enumValueIndex = (int)(SyncMode)
-                        EditorGUILayout.EnumPopup("Network Sync Mode", networkBehaviour.syncMode);
+                    EditorGUILayout.PropertyField( serializedObject.FindProperty("syncMode") );
+                    /*serializedObject.FindProperty("syncMode").enumValueIndex = (int)(SyncMode)
+                        EditorGUILayout.EnumPopup("Network Sync Mode", networkBehaviour.syncMode);*/
 
                     // syncInterval
                     // [0,2] should be enough. anything >2s is too laggy anyway.

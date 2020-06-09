@@ -184,7 +184,7 @@ namespace Mirror
         {
             messageHandlers.Remove(msgType);
         }
-
+#if false
         /// <summary>
         /// Obsolete: use <see cref="Send{T}(T, int)"/> instead
         /// </summary>
@@ -195,7 +195,7 @@ namespace Mirror
             byte[] message = MessagePacker.PackMessage(msgType, msg);
             return Send(new ArraySegment<byte>(message), channelId);
         }
-
+#endif
         /// <summary>
         /// This sends a network message with a message ID on the connection. This message is sent on channel zero, which by default is the reliable channel.
         /// </summary>
@@ -286,7 +286,7 @@ namespace Mirror
             return InvokeHandler(msgType, null, -1);
         }
 
-        internal bool InvokeHandler(int msgType, NetworkReader reader, int channelId)
+        internal bool InvokeHandler(int msgType, NetworkReader reader, int channelId, string debugName = null)
         {
             if (messageHandlers.TryGetValue(msgType, out NetworkMessageDelegate msgDelegate))
             {
@@ -301,7 +301,7 @@ namespace Mirror
                 msgDelegate(message);
                 return true;
             }
-            Debug.LogError("Unknown message ID " + msgType + " " + this);
+            Debug.LogError("Unknown message ID " + msgType + " " + this + " debugName:" + debugName );
             return false;
         }
 
@@ -346,13 +346,13 @@ namespace Mirror
         {
             // unpack message
             NetworkReader reader = new NetworkReader(buffer);
-            if (MessagePacker.UnpackMessage(reader, out int msgType))
+            if (MessagePacker.UnpackMessage(reader, out int msgType, out string debugName ))
             {
                 // logging
                 if (logNetworkMessages) Debug.Log("ConnectionRecv " + this + " msgType:" + msgType + " content:" + BitConverter.ToString(buffer.Array, buffer.Offset, buffer.Count));
 
                 // try to invoke the handler for that message
-                if (InvokeHandler(msgType, reader, channelId))
+                if (InvokeHandler(msgType, reader, channelId, debugName))
                 {
                     lastMessageTime = Time.time;
                 }

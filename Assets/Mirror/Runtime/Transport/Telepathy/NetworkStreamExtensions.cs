@@ -1,9 +1,8 @@
-﻿using System.IO;
+using System.IO;
 using System.Net.Sockets;
 
 namespace Telepathy
 {
-
     public static class NetworkStreamExtensions
     {
         // .Read returns '0' if remote closed the connection but throws an
@@ -11,13 +10,28 @@ namespace Telepathy
         //
         // let's add a ReadSafely method that returns '0' in both cases so we don't
         // have to worry about exceptions, since a disconnect is a disconnect...
-        public static int ReadSafely(this NetworkStream stream, byte[] buffer, int offset, int size)
+        public static int ReadSafely( this NetworkStream stream, byte[] buffer, int offset, int size )
         {
             try
             {
-                return stream.Read(buffer, offset, size);
+                // Wappen: Async version for diagnostic
+                // There is strange lock in stream.Read while client still sending legit data seen through wireshark ,100% reproducable weird and scary stuff.
+                // Use BeginRead version instead
+                float timeWaited = 0f;
+                var result = stream.BeginRead( buffer, offset, size, null, null );
+                while( result.AsyncWaitHandle.WaitOne( 100 ) == false )
+                {
+                    // Timeout occur, count time without no traffic
+                    timeWaited += 0.1f;
+                }
+
+                int totalRead = stream.EndRead( result );
+                return totalRead;
+
+                // Original call
+                //return stream.Read(buffer, offset, size);
             }
-            catch (IOException)
+            catch( IOException )
             {
                 return 0;
             }
@@ -28,7 +42,7 @@ namespace Telepathy
         //    bytes
         // -> this is blocking until 'n' bytes were received
         // -> immediately returns false in case of disconnects
-        public static bool ReadExactly(this NetworkStream stream, byte[] buffer, int amount)
+        public static bool ReadExactly( this NetworkStream stream, byte[] buffer, int amount )
         {
             // there might not be enough bytes in the TCP buffer for .Read to read
             // the whole amount at once, so we need to keep trying until we have all
@@ -40,14 +54,14 @@ namespace Telepathy
             //             return false;
             //     return true;
             int bytesRead = 0;
-            while (bytesRead < amount)
+            while( bytesRead < amount )
             {
                 // read up to 'remaining' bytes with the 'safe' read extension
                 int remaining = amount - bytesRead;
                 int result = stream.ReadSafely(buffer, bytesRead, remaining);
 
                 // .Read returns 0 if disconnected
-                if (result == 0)
+                if( result == 0 )
                     return false;
 
                 // otherwise add to bytes read
@@ -56,4 +70,5 @@ namespace Telepathy
             return true;
         }
     }
+
 }

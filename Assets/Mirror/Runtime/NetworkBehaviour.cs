@@ -25,6 +25,8 @@ namespace Mirror
     {
         internal float lastSyncTime;
 
+        [Header("NetworkBehaviour")]
+
         // hidden because NetworkBehaviourInspector shows it only if has OnSerialize.
         /// <summary>
         /// sync mode for OnSerialize
@@ -192,7 +194,7 @@ namespace Mirror
                 return;
             }
             // local players can always send commands, regardless of authority, other objects must have authority.
-            if (!(isLocalPlayer || hasAuthority))
+            if (!(isLocalPlayer || hasAuthority || isServer)) // Wappen: Fix for Mirror3->6
             {
                 Debug.LogWarning($"Trying to send command for object without authority. {invokeClass.ToString()}.{cmdName}");
                 return;
@@ -210,9 +212,13 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, cmdName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+#if UNITY_EDITOR ||  DEVELOPMENT_BUILD
+                debug = $"{invokeClass.FullName}.{cmdName}" // Same string involved to hash in GetMethodHash
+#endif
             };
 
+            //Debug.Log( $"ObjCmd {this.name} {cmdName} hash {message.functionHash}" );
             ClientScene.readyConnection.Send(message, channelId);
         }
 
@@ -252,7 +258,8 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, rpcName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+                debug = rpcName
             };
 
             NetworkServer.SendToReady(netIdentity, message, channelId);
@@ -291,7 +298,8 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, rpcName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+                debug = rpcName
             };
 
             conn.Send(message, channelId);
@@ -326,7 +334,8 @@ namespace Mirror
                 netId = netId,
                 componentIndex = ComponentIndex,
                 functionHash = GetMethodHash(invokeClass, eventName), // type+func so Inventory.RpcUse != Equipment.RpcUse
-                payload = writer.ToArraySegment() // segment to avoid reader allocations
+                payload = writer.ToArraySegment(), // segment to avoid reader allocations
+                debug = eventName
             };
 
             NetworkServer.SendToReady(netIdentity, message, channelId);
@@ -367,6 +376,12 @@ namespace Mirror
         protected static void RegisterDelegate(Type invokeClass, string cmdName, MirrorInvokeType invokerType, CmdDelegate func)
         {
             int cmdHash = GetMethodHash(invokeClass, cmdName); // type+func so Inventory.RpcUse != Equipment.RpcUse
+
+            //// DEBUG
+            //if( invokerType == MirrorInvokeType.Command && invokeClass.Name == "DungenPlayer" )
+            //{
+            //    Debug.Log( $"Registering {cmdName} as {cmdHash}" );
+            //}
 
             if (cmdHandlerDelegates.ContainsKey(cmdHash))
             {
@@ -639,7 +654,8 @@ namespace Mirror
             return false;
         }
 
-        internal bool IsDirty()
+        // Wappen: Changed to virtual
+        public virtual bool IsDirty()
         {
             if (Time.time - lastSyncTime >= syncInterval)
             {

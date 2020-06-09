@@ -29,7 +29,7 @@ namespace Mirror
         {
             return type.FullName.GetStableHashCode() & 0xFFFF;
         }
-
+#if false
         // pack message before sending
         // -> NetworkWriter passed as arg so that we can use .ToArraySegment
         //    and do an allocation free send before recycling it.
@@ -53,7 +53,7 @@ namespace Mirror
                 NetworkWriterPool.Recycle(writer);
             }
         }
-
+#endif
         // pack message before sending
         // -> NetworkWriter passed as arg so that we can use .ToArraySegment
         //    and do an allocation free send before recycling it.
@@ -63,8 +63,10 @@ namespace Mirror
             // this works because value types cannot be derived
             // if it is a reference type (for example IMessageBase),
             // ask the message for the real type
-            int msgType = GetId(typeof(T).IsValueType ? typeof(T) : message.GetType());
+            Type t = typeof(T).IsValueType ? typeof(T) : message.GetType();
+            int msgType = GetId( t );
             writer.WriteUInt16((ushort)msgType);
+            writer.WriteString( t.Name );
 
             // serialize message into writer
             message.Serialize(writer);
@@ -85,7 +87,7 @@ namespace Mirror
 
             return data;
         }
-
+#if false
         // unpack a message we received
         public static T Unpack<T>(byte[] data) where T : IMessageBase, new()
         {
@@ -96,27 +98,31 @@ namespace Mirror
             int id = reader.ReadUInt16();
             if (id != msgType)
                 throw new FormatException("Invalid message,  could not unpack " + typeof(T).FullName);
+            
+            string debugName = reader.ReadString( );
 
             T message = new T();
             message.Deserialize(reader);
             return message;
         }
-
+#endif
         // unpack message after receiving
         // -> pass NetworkReader so it's less strange if we create it in here
         //    and pass it upwards.
         // -> NetworkReader will point at content afterwards!
-        public static bool UnpackMessage(NetworkReader messageReader, out int msgType)
+        public static bool UnpackMessage(NetworkReader messageReader, out int msgType, out string debugName)
         {
             // read message type (varint)
             try
             {
                 msgType = messageReader.ReadUInt16();
+                debugName = messageReader.ReadString( );
                 return true;
             }
             catch (System.IO.EndOfStreamException)
             {
                 msgType = 0;
+                debugName = "??";
                 return false;
             }
         }

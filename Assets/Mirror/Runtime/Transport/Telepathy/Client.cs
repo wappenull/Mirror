@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
@@ -43,6 +44,9 @@ namespace Telepathy
         // -> call WaitOne() to block until Reset was called
         ManualResetEvent sendPending = new ManualResetEvent(false);
 
+        // Wappen:
+        bool abortConnect;
+
         // the thread function
         void ReceiveThreadFunction(string ip, int port)
         {
@@ -50,8 +54,40 @@ namespace Telepathy
             // exceptions are silent
             try
             {
-                // connect (blocking)
-                client.Connect(ip, port);
+                // Wappen: Resolve DNS and prepare best socket family   
+                // This is also blocking operation so it should be in thread
+                AddressFamily family = _ResolveBestIpInterface( ip );
+
+                if( family == AddressFamily.Unknown )
+                {
+                    throw new OperationCanceledException( "No IPAddress suitable for connect for target ip " + ip );
+                }
+
+                client = new TcpClient( family );
+
+                // Wappen Modifying: Use Nonblocking to get rid of Thread Join delay.
+                // incoming IP could be DNS name or IPv6, use IPAddress to check that
+                IPAddress ipa;
+                IAsyncResult result;
+                if( IPAddress.TryParse( ip, out ipa ) ) // Use IPAddress version to connect
+                    result = client.BeginConnect( ipa, port, null, null );
+                else
+                    result = client.BeginConnect( ip, port, null, null );
+
+                while( result.AsyncWaitHandle.WaitOne( 100 ) == false )
+                {
+                    if( abortConnect )
+                    {
+                        client.Close( );
+                        break;
+                    }
+                }
+
+                if( abortConnect )
+                    throw new OperationCanceledException( "abortConnect" );
+
+                // If task is completed and reached here, supposed it is finished!
+                client.EndConnect(result);
                 _Connecting = false;
 
                 // set socket options after the socket was created in Connect()
@@ -67,15 +103,32 @@ namespace Telepathy
                 // run the receive loop
                 ReceiveLoop(0, client, receiveQueue, MaxMessageSize);
             }
+            catch( OperationCanceledException )
+            {
+                // Connect operation is cancelled
+                receiveQueue.Enqueue(new Message(0, EventType.Disconnected, null));
+            }
             catch (SocketException exception)
             {
                 // this happens if (for example) the ip address is correct
                 // but there is no server running on that ip/port
                 Logger.Log("Client Recv: failed to connect to ip=" + ip + " port=" + port + " reason=" + exception);
 
+                // Prepare extra reason, this is sending from worker thread to main thread
+                byte[] extraDisconnectMessage = null;
+                using( System.IO.MemoryStream ms = new System.IO.MemoryStream( ) )
+                {
+                    using( System.IO.BinaryWriter bw = new System.IO.BinaryWriter( ms ) )
+                    {
+                        bw.Write( (int)exception.SocketErrorCode );
+                        bw.Write( exception.Message );
+                    }
+                    extraDisconnectMessage = ms.ToArray( );
+                }
+
                 // add 'Disconnected' event to message queue so that the caller
                 // knows that the Connect failed. otherwise they will never know
-                receiveQueue.Enqueue(new Message(0, EventType.Disconnected, null));
+                receiveQueue.Enqueue( new Message( 0, EventType.Disconnected, extraDisconnectMessage ) );
             }
             catch (ThreadInterruptedException)
             {
@@ -133,8 +186,11 @@ namespace Telepathy
             // => the trick is to clear the internal IPv4 socket so that Connect
             //    resolves the hostname and creates either an IPv4 or an IPv6
             //    socket as needed (see TcpClient source)
-            client = new TcpClient(); // creates IPv4 socket
-            client.Client = null; // clear internal IPv4 socket until Connect()
+            //client = new TcpClient(); // creates IPv4 socket
+            //client.Client = null; // clear internal IPv4 socket until Connect()
+
+            client = null; // Will construct in thread
+            abortConnect = false;
 
             // clear old messages in queue, just to be sure that the caller
             // doesn't receive data from last time and gets out of sync.
@@ -160,7 +216,11 @@ namespace Telepathy
             if (Connecting || Connected)
             {
                 // close client
-                client.Close();
+                if( client != null )
+                    client.Close();
+
+                // Wappen: Mark cancel connection if we are connecting
+                abortConnect = true;
 
                 // kill the receive thread
                 // => AbortAndJoin is the safest way and avoids race conditions!
@@ -202,6 +262,28 @@ namespace Telepathy
             }
             Logger.LogWarning("Client.Send: not connected!");
             return false;
+        }
+
+        private static AddressFamily _ResolveBestIpInterface( string ip )
+        {
+#if false
+            // IPv6: We need to process each of the addresses return from
+            //       DNS when trying to connect.
+            // Code snippet from https://referencesource.microsoft.com/#system/net/System/Net/Sockets/TCPClient.cs,eeb78642518c5e2d
+            IPAddress[] addresses = Dns.GetHostAddresses( ip );
+            foreach( IPAddress address in addresses )
+            {
+                if( address.AddressFamily == AddressFamily.InterNetwork && Socket.OSSupportsIPv4 )
+                    return address;
+                else if( address.AddressFamily == AddressFamily.InterNetworkV6 && Socket.OSSupportsIPv6 )
+                    return address;
+            }
+#endif
+            // Simple determine by jointer
+            if( Socket.OSSupportsIPv6 )
+                return AddressFamily.InterNetworkV6;
+            else
+                return AddressFamily.InterNetwork;
         }
     }
 }
