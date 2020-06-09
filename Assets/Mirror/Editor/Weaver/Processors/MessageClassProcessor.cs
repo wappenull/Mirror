@@ -47,7 +47,9 @@ namespace Mirror.Weaver
         static void GenerateSerialization(TypeDefinition td)
         {
             Weaver.DLog(td, "  GenerateSerialization");
-            MethodDefinition existingMethod = _FindMethodInMessage( td, "Serialize" );
+            // Wappen fix was this:
+            // MethodDefinition existingMethod = _FindMethodInMessage( td, "Serialize" );
+            MethodDefinition existingMethod = td.GetMethod("Serialize");
             if (existingMethod != null && !existingMethod.Body.IsEmptyDefault())
             {
                 return;
@@ -139,6 +141,8 @@ namespace Mirror.Weaver
         static void GenerateDeSerialization(TypeDefinition td)
         {
             Weaver.DLog(td, "  GenerateDeserialization");
+            // Wappen fix was this:
+            // ethodDefinition existingMethod = _FindMethodInMessage( td, "Deserialize" );
             MethodDefinition existingMethod = _FindMethodInMessage( td, "Deserialize" );
             if (existingMethod != null && !existingMethod.Body.IsEmptyDefault())
             {
@@ -166,7 +170,7 @@ namespace Mirror.Weaver
                 serWorker.Body.Instructions.Clear();
             }
 
-            //if not struct(IMessageBase), likely same as using else {} here in all cases
+            // if not value type, call base
             if (!td.IsValueType)
             {
                 CallBase(td, serWorker, "Deserialize");

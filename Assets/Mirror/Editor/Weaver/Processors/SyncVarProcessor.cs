@@ -10,45 +10,43 @@ namespace Mirror.Weaver
         // ulong = 64 bytes
         const int SyncVarLimit = 64;
 
-        // returns false for error, not for no-hook-exists
-        public static bool CheckForHookFunction(TypeDefinition td, FieldDefinition syncVar, out MethodDefinition foundMethod)
+        // Get hook method if any
+        public static MethodDefinition GetHookMethod(TypeDefinition td, FieldDefinition syncVar)
         {
-            foundMethod = null;
             CustomAttribute ca = syncVar.GetCustomAttribute(Weaver.SyncVarType.FullName);
 
-            if (ca != null)
-            {
-                foreach (CustomAttributeNamedArgument customField in ca.Fields)
-                {
-                    if (customField.Name == "hook")
-                    {
-                        string hookFunctionName = customField.Argument.Value as string;
+            if (ca == null)
+                return null;
 
-                        foreach (MethodDefinition m in td.Methods)
-                        {
-                            if (m.Name == hookFunctionName)
-                            {
-                                if (m.Parameters.Count == 2)
-                                {
-                                    if (m.Parameters[0].ParameterType != syncVar.FieldType ||
-                                        m.Parameters[1].ParameterType != syncVar.FieldType)
-                                    {
-                                        Weaver.Error($"{m} should have signature:\npublic void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}");
-                                        return false;
-                                    }
-                                    foundMethod = m;
-                                    return true;
-                                }
-                                Weaver.Error($"{m} should have signature:\npublic void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}");
-                                return false;
-                            }
-                        }
-                        Weaver.Error($"No hook implementation found for {syncVar}. Add this method to your class:\npublic void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}");
-                        return false;
+            string hookFunctionName = ca.GetField<string>("hook", null);
+
+            if (hookFunctionName == null)
+                return null;
+
+            return GetHookMethod(td, syncVar, hookFunctionName);
+        }
+
+        private static MethodDefinition GetHookMethod(TypeDefinition td, FieldDefinition syncVar, string hookFunctionName)
+        {
+            MethodDefinition m = td.GetMethod(hookFunctionName);
+            if (m != null)
+            {
+                if (m.Parameters.Count == 2)
+                {
+                    if (m.Parameters[0].ParameterType != syncVar.FieldType ||
+                        m.Parameters[1].ParameterType != syncVar.FieldType)
+                    {
+                        Weaver.Error($"{m} should have signature:\npublic void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}");
+                        return null;
                     }
+                    return m;
                 }
+                Weaver.Error($"{m} should have signature:\npublic void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}");
+                return null;
             }
-            return true;
+
+            Weaver.Error($"No hook implementation found for {syncVar}. Add this method to your class:\npublic void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}");
+            return null;
         }
 
         public static MethodDefinition ProcessSyncVarGet(FieldDefinition fd, string originalName, FieldDefinition netFieldId)
@@ -198,7 +196,7 @@ namespace Mirror.Weaver
                 setWorker.Append(setWorker.Create(OpCodes.Call, gm));
             }
 
-            CheckForHookFunction(td, fd, out MethodDefinition hookFunctionMethod);
+            MethodDefinition hookFunctionMethod = GetHookMethod(td, fd);
 
             if (hookFunctionMethod != null)
             {

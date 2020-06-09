@@ -1,22 +1,48 @@
 using System;
-using System.IO;
 using System.Text;
 using UnityEngine;
 
 namespace Mirror
 {
-    // Binary stream Writer. Supports simple types, buffers, arrays, structs, and nested types
+    /// <summary>
+    /// Binary stream Writer. Supports simple types, buffers, arrays, structs, and nested types
+    /// <para>Use <see cref="NetworkWriterPool.GetWriter">NetworkWriter.GetWriter</see> to reduce memory allocation</para>
+    /// </summary>
     public class NetworkWriter
     {
         public const int MaxStringLength = 1024 * 32;
 
         // create writer immediately with it's own buffer so no one can mess with it and so that we can resize it.
         // note: BinaryWriter allocates too much, so we only use a MemoryStream
-        readonly MemoryStream stream = new MemoryStream();
+        // => 1500 bytes by default because on average, most packets will be <= MTU
+        byte[] buffer = new byte[1500];
 
         // 'int' is the best type for .Position. 'short' is too small if we send >32kb which would result in negative .Position
         // -> converting long to int is fine until 2GB of data (MAX_INT), so we don't have to worry about overflows here
-        public int Position { get { return (int)stream.Position; } set { stream.Position = value; } }
+        public int Position;
+
+        int length;
+
+        public int Length
+        {
+            get => length;
+            private set
+            {
+                EnsureCapacity(value);
+                length = value;
+                if (Position > length)
+                    Position = length;
+            }
+        }
+
+        void EnsureCapacity(int value)
+        {
+            if (buffer.Length < value)
+            {
+                int capacity = Math.Max(value, buffer.Length * 2);
+                Array.Resize(ref buffer, capacity);
+            }
+        }
 
         // MemoryStream has 3 values: Position, Length and Capacity.
         // Position is used to indicate where we are writing
@@ -25,8 +51,9 @@ namespace Mirror
         // ToArray returns all the data we have written,  regardless of the current position
         public byte[] ToArray()
         {
-            stream.Flush();
-            return stream.ToArray();
+            byte[] data = new byte[Length];
+            Array.ConstrainedCopy(buffer, 0, data, 0, Length);
+            return data;
         }
 
         // Gets the serialized data in an ArraySegment<byte>
@@ -36,51 +63,64 @@ namespace Mirror
         // while you are using the ArraySegment
         public ArraySegment<byte> ToArraySegment()
         {
-            stream.Flush();
-            if (stream.TryGetBuffer(out ArraySegment<byte> data))
-            {
-                return data;
-            }
-            throw new Exception("Cannot expose contents of memory stream. Make sure that MemoryStream buffer is publicly visible (see MemoryStream source code).");
+            return new ArraySegment<byte>(buffer, 0, length);
         }
 
         // reset both the position and length of the stream,  but leaves the capacity the same
         // so that we can reuse this writer without extra allocations
-        public void SetLength(long value)
+        public void SetLength(int value)
         {
-            stream.SetLength(value);
+            Length = value;
         }
 
-        public void WriteByte(byte value) => stream.WriteByte(value);
+        public void WriteByte(byte value)
+        {
+            if (Position >= Length)
+            {
+                Length += 1;
+            }
+
+            buffer[Position++] = value;
+        }
+
 
         // for byte arrays with consistent size, where the reader knows how many to read
         // (like a packet opcode that's always the same)
         public void WriteBytes(byte[] buffer, int offset, int count)
         {
             // no null check because we would need to write size info for that too (hence WriteBytesAndSize)
-            stream.Write(buffer, offset, count);
+            if (Position + count > Length)
+            {
+                Length = Position + count;
+            }
+            Array.ConstrainedCopy(buffer, offset, this.buffer, Position, count);
+            Position += count;
         }
 
         public void WriteUInt32(uint value)
         {
-            WriteByte((byte)(value & 0xFF));
-            WriteByte((byte)((value >> 8) & 0xFF));
-            WriteByte((byte)((value >> 16) & 0xFF));
-            WriteByte((byte)((value >> 24) & 0xFF));
+            EnsureCapacity(Position + 4);
+            buffer[Position++] = (byte)value;
+            buffer[Position++] = (byte)(value >> 8);
+            buffer[Position++] = (byte)(value >> 16);
+            buffer[Position++] = (byte)(value >> 24);
+            Length = Math.Max(Length, Position);
         }
 
         public void WriteInt32(int value) => WriteUInt32((uint)value);
 
         public void WriteUInt64(ulong value)
         {
-            WriteByte((byte)(value & 0xFF));
-            WriteByte((byte)((value >> 8) & 0xFF));
-            WriteByte((byte)((value >> 16) & 0xFF));
-            WriteByte((byte)((value >> 24) & 0xFF));
-            WriteByte((byte)((value >> 32) & 0xFF));
-            WriteByte((byte)((value >> 40) & 0xFF));
-            WriteByte((byte)((value >> 48) & 0xFF));
-            WriteByte((byte)((value >> 56) & 0xFF));
+            EnsureCapacity(Position + 8);
+            buffer[Position++] = (byte)value;
+            buffer[Position++] = (byte)(value >> 8);
+            buffer[Position++] = (byte)(value >> 16);
+            buffer[Position++] = (byte)(value >> 24);
+            buffer[Position++] = (byte)(value >> 32);
+            buffer[Position++] = (byte)(value >> 40);
+            buffer[Position++] = (byte)(value >> 48);
+            buffer[Position++] = (byte)(value >> 56);
+            Length = Math.Max(Length, Position);
         }
 
         public void WriteInt64(long value) => WriteUInt64((ulong)value);
@@ -101,13 +141,13 @@ namespace Mirror
 
         public static void WriteSByte(this NetworkWriter writer, sbyte value) => writer.WriteByte((byte)value);
 
-        public static void WriteChar(this NetworkWriter writer, char value) => writer.WriteUInt16((ushort)value);
+        public static void WriteChar(this NetworkWriter writer, char value) => writer.WriteUInt16(value);
 
         public static void WriteBoolean(this NetworkWriter writer, bool value) => writer.WriteByte((byte)(value ? 1 : 0));
 
         public static void WriteUInt16(this NetworkWriter writer, ushort value)
         {
-            writer.WriteByte((byte)(value & 0xFF));
+            writer.WriteByte((byte)value);
             writer.WriteByte((byte)(value >> 8));
         }
 
@@ -152,7 +192,7 @@ namespace Mirror
             //        on the client)
             if (value == null)
             {
-                writer.WriteUInt16((ushort)0);
+                writer.WriteUInt16(0);
                 return;
             }
 
@@ -232,78 +272,78 @@ namespace Mirror
             if (value <= 2287)
             {
                 writer.WriteByte((byte)(((value - 240) >> 8) + 241));
-                writer.WriteByte((byte)((value - 240) & 0xFF));
+                writer.WriteByte((byte)(value - 240));
                 return;
             }
             if (value <= 67823)
             {
-                writer.WriteByte((byte)249);
+                writer.WriteByte(249);
                 writer.WriteByte((byte)((value - 2288) >> 8));
-                writer.WriteByte((byte)((value - 2288) & 0xFF));
+                writer.WriteByte((byte)(value - 2288));
                 return;
             }
             if (value <= 16777215)
             {
-                writer.WriteByte((byte)250);
-                writer.WriteByte((byte)(value & 0xFF));
-                writer.WriteByte((byte)((value >> 8) & 0xFF));
-                writer.WriteByte((byte)((value >> 16) & 0xFF));
+                writer.WriteByte(250);
+                writer.WriteByte((byte)value);
+                writer.WriteByte((byte)(value >> 8));
+                writer.WriteByte((byte)(value >> 16));
                 return;
             }
             if (value <= 4294967295)
             {
-                writer.WriteByte((byte)251);
-                writer.WriteByte((byte)(value & 0xFF));
-                writer.WriteByte((byte)((value >> 8) & 0xFF));
-                writer.WriteByte((byte)((value >> 16) & 0xFF));
-                writer.WriteByte((byte)((value >> 24) & 0xFF));
+                writer.WriteByte(251);
+                writer.WriteByte((byte)value);
+                writer.WriteByte((byte)(value >> 8));
+                writer.WriteByte((byte)(value >> 16));
+                writer.WriteByte((byte)(value >> 24));
                 return;
             }
             if (value <= 1099511627775)
             {
-                writer.WriteByte((byte)252);
-                writer.WriteByte((byte)(value & 0xFF));
-                writer.WriteByte((byte)((value >> 8) & 0xFF));
-                writer.WriteByte((byte)((value >> 16) & 0xFF));
-                writer.WriteByte((byte)((value >> 24) & 0xFF));
-                writer.WriteByte((byte)((value >> 32) & 0xFF));
+                writer.WriteByte(252);
+                writer.WriteByte((byte)value);
+                writer.WriteByte((byte)(value >> 8));
+                writer.WriteByte((byte)(value >> 16));
+                writer.WriteByte((byte)(value >> 24));
+                writer.WriteByte((byte)(value >> 32));
                 return;
             }
             if (value <= 281474976710655)
             {
-                writer.WriteByte((byte)253);
-                writer.WriteByte((byte)(value & 0xFF));
-                writer.WriteByte((byte)((value >> 8) & 0xFF));
-                writer.WriteByte((byte)((value >> 16) & 0xFF));
-                writer.WriteByte((byte)((value >> 24) & 0xFF));
-                writer.WriteByte((byte)((value >> 32) & 0xFF));
-                writer.WriteByte((byte)((value >> 40) & 0xFF));
+                writer.WriteByte(253);
+                writer.WriteByte((byte)value);
+                writer.WriteByte((byte)(value >> 8));
+                writer.WriteByte((byte)(value >> 16));
+                writer.WriteByte((byte)(value >> 24));
+                writer.WriteByte((byte)(value >> 32));
+                writer.WriteByte((byte)(value >> 40));
                 return;
             }
             if (value <= 72057594037927935)
             {
-                writer.WriteByte((byte)254);
-                writer.WriteByte((byte)(value & 0xFF));
-                writer.WriteByte((byte)((value >> 8) & 0xFF));
-                writer.WriteByte((byte)((value >> 16) & 0xFF));
-                writer.WriteByte((byte)((value >> 24) & 0xFF));
-                writer.WriteByte((byte)((value >> 32) & 0xFF));
-                writer.WriteByte((byte)((value >> 40) & 0xFF));
-                writer.WriteByte((byte)((value >> 48) & 0xFF));
+                writer.WriteByte(254);
+                writer.WriteByte((byte)value);
+                writer.WriteByte((byte)(value >> 8));
+                writer.WriteByte((byte)(value >> 16));
+                writer.WriteByte((byte)(value >> 24));
+                writer.WriteByte((byte)(value >> 32));
+                writer.WriteByte((byte)(value >> 40));
+                writer.WriteByte((byte)(value >> 48));
                 return;
             }
 
             // all others
             {
-                writer.WriteByte((byte)255);
-                writer.WriteByte((byte)(value & 0xFF));
-                writer.WriteByte((byte)((value >> 8) & 0xFF));
-                writer.WriteByte((byte)((value >> 16) & 0xFF));
-                writer.WriteByte((byte)((value >> 24) & 0xFF));
-                writer.WriteByte((byte)((value >> 32) & 0xFF));
-                writer.WriteByte((byte)((value >> 40) & 0xFF));
-                writer.WriteByte((byte)((value >> 48) & 0xFF));
-                writer.WriteByte((byte)((value >> 56) & 0xFF));
+                writer.WriteByte(255);
+                writer.WriteByte((byte)value);
+                writer.WriteByte((byte)(value >> 8));
+                writer.WriteByte((byte)(value >> 16));
+                writer.WriteByte((byte)(value >> 24));
+                writer.WriteByte((byte)(value >> 32));
+                writer.WriteByte((byte)(value >> 40));
+                writer.WriteByte((byte)(value >> 48));
+                writer.WriteByte((byte)(value >> 56));
             }
         }
 

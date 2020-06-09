@@ -39,7 +39,8 @@ namespace Mirror
             // this works because value types cannot be derived
             // if it is a reference type (for example IMessageBase),
             // ask the message for the real type
-            Type t = typeof(T).IsValueType ? typeof(T) : message.GetType();
+            Type t = default(T) != null ? typeof(T) : message.GetType();
+            
             int msgType = GetId( t );
             writer.WriteUInt16((ushort)msgType);
             writer.WriteString( t.Name );
@@ -62,7 +63,8 @@ namespace Mirror
                 return data;
             }
         }
-#if false
+        
+#if false // Turn off this variant
         // unpack a message we received
         public static T Unpack<T>(byte[] data) where T : IMessageBase, new()
         {
@@ -82,6 +84,7 @@ namespace Mirror
             }
         }
 #endif
+
         // unpack message after receiving
         // -> pass NetworkReader so it's less strange if we create it in here
         //    and pass it upwards.
@@ -131,7 +134,9 @@ namespace Mirror
                     return;
                 }
 
-                message = typeof(T).IsValueType ? default(T) : new T();
+                // if it is a value type, just use defult(T)
+                // otherwise allocate a new instance
+                message = default(T) != null ? default(T) : new T();
                 message.Deserialize(reader);
             }
             catch (Exception exception)

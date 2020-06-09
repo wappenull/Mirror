@@ -102,46 +102,6 @@ namespace Mirror.Tests
         }
 
         [Test]
-        public void TestOverwritingData()
-        {
-            NetworkWriter writer = new NetworkWriter();
-            writer.WriteMatrix4x4(Matrix4x4.identity);
-            writer.WriteDecimal(1.23456789m);
-            writer.Position += 10;
-            writer.WriteVector3(Vector3.negativeInfinity);
-            writer.Position = 46;
-            // write right at the boundary before SetLength
-            writer.WriteInt64(0xfeed_babe_c0ffee);
-            // test that SetLength clears data beyond length
-            writer.SetLength(50);
-            // check that jumping leaves 0s between
-            writer.Position = 100;
-            writer.WriteString("no worries, m8");
-            writer.Position = 64;
-            writer.WriteBoolean(true);
-            // check that clipping off the end affect ToArray()'s length
-            writer.SetLength(128);
-            byte[] output = writer.ToArray();
-            //Debug.Log(BitConverter.ToString(output));
-            byte[] expected = {
-                0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0xEE, 0xFF, 0xC0, 0xBE,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x0F, 0x00, 0x6E, 0x6F, 0x20, 0x77, 0x6F, 0x72, 0x72, 0x69,
-                0x65, 0x73, 0x2C, 0x20, 0x6D, 0x38, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            };
-            Assert.That(output, Is.EqualTo(expected));
-        }
-
-        [Test]
         public void TestSetLengthZeroes()
         {
             NetworkWriter writer = new NetworkWriter();
@@ -554,8 +514,8 @@ namespace Mirror.Tests
         {
             // write 2 bytes
             NetworkWriter writer = new NetworkWriter();
-            writer.WriteByte((byte)1);
-            writer.WriteByte((byte)2);
+            writer.WriteByte(1);
+            writer.WriteByte(2);
 
             // .ToArray() length is 2?
             Assert.That(writer.ToArray().Length, Is.EqualTo(2));
@@ -1103,25 +1063,25 @@ namespace Mirror.Tests
             // write all simple types once
             NetworkWriter writer = new NetworkWriter();
             writer.WriteChar((char)1);
-            writer.WriteByte((byte)2);
-            writer.WriteSByte((sbyte)3);
+            writer.WriteByte(2);
+            writer.WriteSByte(3);
             writer.WriteBoolean(true);
-            writer.WriteInt16((short)4);
-            writer.WriteUInt16((ushort)5);
+            writer.WriteInt16(4);
+            writer.WriteUInt16(5);
             writer.WriteInt32(6);
             writer.WriteUInt32(7U);
             writer.WriteInt64(8L);
             writer.WriteUInt64(9UL);
             writer.WriteSingle(10.0F);
             writer.WriteDouble(11.0D);
-            writer.WriteDecimal((decimal)12);
-            writer.WriteString((string)null);
+            writer.WriteDecimal(12);
+            writer.WriteString(null);
             writer.WriteString("");
             writer.WriteString("13");
             // just the byte array, no size info etc.
             writer.WriteBytes(new byte[] { 14, 15 }, 0, 2);
             // [SyncVar] struct values can have uninitialized byte arrays, null needs to be supported
-            writer.WriteBytesAndSize((byte[])null);
+            writer.WriteBytesAndSize(null);
             // buffer, no-offset, count
             writer.WriteBytesAndSize(new byte[] { 17, 18 }, 0, 2);
             // buffer, offset, count

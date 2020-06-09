@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using Mirror;
 using NSubstitute;
 using NUnit.Framework;
 using UnityEngine;
@@ -573,7 +571,8 @@ namespace Mirror.Tests
             NetworkConnection callbackConnection = null;
             NetworkIdentity callbackIdentity = null;
             bool callbackState = false;
-            NetworkIdentity.clientAuthorityCallback += (conn, networkIdentity, state) => {
+            NetworkIdentity.clientAuthorityCallback += (conn, networkIdentity, state) =>
+            {
                 ++callbackCalled;
                 callbackConnection = conn;
                 callbackIdentity = identity;
@@ -767,7 +766,7 @@ namespace Mirror.Tests
             // call client connect so that internals are set up
             // (it won't actually successfully connect)
             // -> also set up connectmessage handler to avoid unhandled msg error
-            NetworkClient.RegisterHandler<ConnectMessage>(msg => {}, false);
+            NetworkClient.RegisterHandler<ConnectMessage>(msg => { }, false);
             NetworkClient.Connect("localhost");
 
             // manually invoke transport.OnConnected so that NetworkClient.active is set to true
@@ -1191,7 +1190,7 @@ namespace Mirror.Tests
             // try wrong function hash. command shouldn't be called again.
             // warning is expected
             LogAssert.ignoreFailingMessages = true;
-            identity.HandleCommand(0, functionHash+1, payload);
+            identity.HandleCommand(0, functionHash + 1, payload);
             LogAssert.ignoreFailingMessages = false;
             Assert.That(comp0.called, Is.EqualTo(1));
 
@@ -1231,7 +1230,7 @@ namespace Mirror.Tests
             // try wrong function hash. rpc shouldn't be called again.
             // warning is expected
             LogAssert.ignoreFailingMessages = true;
-            identity.HandleRPC(0, functionHash+1, payload);
+            identity.HandleRPC(0, functionHash + 1, payload);
             LogAssert.ignoreFailingMessages = false;
             Assert.That(comp0.called, Is.EqualTo(1));
 
@@ -1271,7 +1270,7 @@ namespace Mirror.Tests
             // try wrong function hash. syncevent shouldn't be called again.
             // warning is expected
             LogAssert.ignoreFailingMessages = true;
-            identity.HandleSyncEvent(0, functionHash+1, payload);
+            identity.HandleSyncEvent(0, functionHash + 1, payload);
             LogAssert.ignoreFailingMessages = false;
             Assert.That(comp0.called, Is.EqualTo(1));
 
@@ -1403,8 +1402,8 @@ namespace Mirror.Tests
             Transport.activeTransport = new MemoryTransport();
 
             // add some server connections
-            NetworkServer.connections[12] = new NetworkConnectionToClient(12){isReady = true};
-            NetworkServer.connections[13] = new NetworkConnectionToClient(13){isReady = false};
+            NetworkServer.connections[12] = new NetworkConnectionToClient(12) { isReady = true };
+            NetworkServer.connections[13] = new NetworkConnectionToClient(13) { isReady = false };
 
             // add a host connection
             ULocalConnectionToClient localConnection = new ULocalConnectionToClient();
@@ -1484,9 +1483,9 @@ namespace Mirror.Tests
             RebuildObserversNetworkBehaviour compA = gameObject.AddComponent<RebuildObserversNetworkBehaviour>();
             compA.observer = null;
             RebuildObserversNetworkBehaviour compB = gameObject.AddComponent<RebuildObserversNetworkBehaviour>();
-            compB.observer = new NetworkConnectionToClient(42){ isReady = false };
+            compB.observer = new NetworkConnectionToClient(42) { isReady = false };
             RebuildObserversNetworkBehaviour compC = gameObject.AddComponent<RebuildObserversNetworkBehaviour>();
-            compC.observer = new NetworkConnectionToClient(43){ isReady = true };
+            compC.observer = new NetworkConnectionToClient(43) { isReady = true };
 
             // call OnStartServer so that observers dict is created
             identity.OnStartServer();
@@ -1509,8 +1508,8 @@ namespace Mirror.Tests
             Transport.activeTransport = new MemoryTransport();
 
             // add some server connections
-            NetworkServer.connections[12] = new NetworkConnectionToClient(12){isReady = true};
-            NetworkServer.connections[13] = new NetworkConnectionToClient(13){isReady = false};
+            NetworkServer.connections[12] = new NetworkConnectionToClient(12) { isReady = true };
+            NetworkServer.connections[13] = new NetworkConnectionToClient(13) { isReady = false };
 
             // call OnStartServer so that observers dict is created
             identity.OnStartServer();
@@ -1534,7 +1533,7 @@ namespace Mirror.Tests
             Transport.activeTransport = new MemoryTransport();
 
             // add a server connection
-            NetworkServer.connections[12] = new NetworkConnectionToClient(12){isReady = true};
+            NetworkServer.connections[12] = new NetworkConnectionToClient(12) { isReady = true };
 
             // add at least one observers component, otherwise it will just add
             // all server connections
@@ -1563,7 +1562,7 @@ namespace Mirror.Tests
 
             // add observer component with ready observer
             RebuildObserversNetworkBehaviour comp = gameObject.AddComponent<RebuildObserversNetworkBehaviour>();
-            NetworkConnectionToClient observerA = new NetworkConnectionToClient(42){ isReady = true };
+            NetworkConnectionToClient observerA = new NetworkConnectionToClient(42) { isReady = true };
             comp.observer = observerA;
 
             // call OnStartServer so that observers dict is created
@@ -1579,7 +1578,7 @@ namespace Mirror.Tests
             Assert.That(observerA.visList.Contains(identity), Is.True);
 
             // let the component find another observer
-            NetworkConnectionToClient observerB = new NetworkConnectionToClient(43){ isReady = true };
+            NetworkConnectionToClient observerB = new NetworkConnectionToClient(43) { isReady = true };
             comp.observer = observerB;
 
             // rebuild observers should remove the old observer and add the new one
@@ -1631,7 +1630,7 @@ namespace Mirror.Tests
         public void RebuildObserversReturnsIfNull()
         {
             // add a server connection
-            NetworkServer.connections[12] = new NetworkConnectionToClient(12){isReady = true};
+            NetworkServer.connections[12] = new NetworkConnectionToClient(12) { isReady = true };
 
             // call RebuildObservers without calling OnStartServer first.
             // .observers will be null and it should simply return early.

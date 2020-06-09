@@ -299,7 +299,7 @@ namespace Mirror.Tests
         public void NetworkBehaviourTargetRpcParamAbstract()
         {
             Assert.That(CompilationFinishedHook.WeaveFailed, Is.True);
-            Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: MirrorTest.MirrorTestPlayer/AbstractClass can't be deserialized bcause i has no default constructor"));
+            Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: MirrorTest.MirrorTestPlayer/AbstractClass can't be deserialized because i has no default constructor"));
         }
 
         [Test]
@@ -369,7 +369,7 @@ namespace Mirror.Tests
         public void NetworkBehaviourClientRpcParamAbstract()
         {
             Assert.That(CompilationFinishedHook.WeaveFailed, Is.True);
-            Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: MirrorTest.MirrorTestPlayer/AbstractClass can't be deserialized bcause i has no default constructor"));
+            Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: MirrorTest.MirrorTestPlayer/AbstractClass can't be deserialized because i has no default constructor"));
         }
 
         [Test]
@@ -418,7 +418,7 @@ namespace Mirror.Tests
         public void NetworkBehaviourCmdParamAbstract()
         {
             Assert.That(CompilationFinishedHook.WeaveFailed, Is.True);
-            Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: MirrorTest.MirrorTestPlayer/AbstractClass can't be deserialized bcause i has no default constructor"));
+            Assert.That(weaverErrors, Contains.Item("Mirror.Weaver error: MirrorTest.MirrorTestPlayer/AbstractClass can't be deserialized because i has no default constructor"));
         }
 
         [Test]
@@ -661,7 +661,7 @@ namespace Mirror.Tests
             CheckAddedCodeServer();
         }
 
-        [Test] 
+        [Test]
         public void NetworkBehaviourClient()
         {
             Assert.That(CompilationFinishedHook.WeaveFailed, Is.False);
@@ -689,7 +689,7 @@ namespace Mirror.Tests
         static void CheckAddedCode(string addedString, string methodName)
         {
             string className = "MirrorTest.MirrorTestPlayer";
-            
+
             string assemblyName = WeaverAssembler.OutputDirectory + WeaverAssembler.OutputFile;
             using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(assemblyName))
             {
@@ -705,10 +705,10 @@ namespace Mirror.Tests
         }
         #endregion
 
-         [Test]
+        [Test]
         public void TestingScriptableObjectArraySerialization()
         {
-            UnityEngine.Debug.Log(string.Join("\n",weaverErrors));
+            UnityEngine.Debug.Log(string.Join("\n", weaverErrors));
             Assert.That(CompilationFinishedHook.WeaveFailed, Is.False);
         }
     }
