@@ -63,6 +63,7 @@ namespace Mirror
         /// <summary>
         /// Reset the NetworkServer singleton.
         /// </summary>
+        [Obsolete("NetworkServer.Reset was used to reset the singleton, but all it does is set active to false ever since we made NetworkServer static. Use StopServer to stop the server, or Shutdown to fully reset the server.")]
         public static void Reset()
         {
             active = false;
@@ -201,13 +202,13 @@ namespace Mirror
             RemoveConnection(0);
         }
 
-        internal static void ActivateLocalClientScene()
+        internal static void ActivateHostScene()
         {
             foreach (NetworkIdentity identity in NetworkIdentity.spawned.Values)
             {
                 if (!identity.isClient)
                 {
-                    if (LogFilter.Debug) Debug.Log("ActivateClientScene " + identity.netId + " " + identity);
+                    if (LogFilter.Debug) Debug.Log("ActivateHostScene " + identity.netId + " " + identity);
 
                     identity.OnStartClient();
                 }
@@ -238,7 +239,7 @@ namespace Mirror
                     {
                         // use local connection directly because it doesn't send via transport
                         if (kvp.Value is ULocalConnectionToClient)
-                            result &= localConnection.Send(segment);
+                            result &= kvp.Value.Send(segment);
                         // gather all internet connections
                         else
                             connectionIdsCache.Add(kvp.Key);
@@ -307,7 +308,7 @@ namespace Mirror
                 {
                     // use local connection directly because it doesn't send via transport
                     if (kvp.Value is ULocalConnectionToClient)
-                        result &= localConnection.Send(segment);
+                        result &= kvp.Value.Send(segment);
                     // gather all internet connections
                     else
                         connectionIdsCache.Add(kvp.Key);
@@ -391,7 +392,7 @@ namespace Mirror
 
                             // use local connection directly because it doesn't send via transport
                             if (kvp.Value is ULocalConnectionToClient)
-                                result &= localConnection.Send(segment);
+                                result &= kvp.Value.Send(segment);
                             // gather all internet connections
                             else
                                 connectionIdsCache.Add(kvp.Key);
@@ -915,7 +916,7 @@ namespace Mirror
             return true;
         }
 
-        static bool GetNetworkIdentity(GameObject go, out NetworkIdentity identity)
+        internal static bool GetNetworkIdentity(GameObject go, out NetworkIdentity identity)
         {
             identity = go.GetComponent<NetworkIdentity>();
             if (identity == null)
@@ -1334,9 +1335,10 @@ namespace Mirror
             return null;
         }
 
-        static bool ValidateSceneObject(NetworkIdentity identity)
+        internal static bool ValidateSceneObject(NetworkIdentity identity)
         {
-            if (identity.gameObject.hideFlags == HideFlags.NotEditable || identity.gameObject.hideFlags == HideFlags.HideAndDontSave)
+            if (identity.gameObject.hideFlags == HideFlags.NotEditable ||
+                identity.gameObject.hideFlags == HideFlags.HideAndDontSave)
                 return false;
 
 #if UNITY_EDITOR
@@ -1355,8 +1357,9 @@ namespace Mirror
         /// <returns>Success if objects where spawned.</returns>
         public static bool SpawnObjects()
         {
+            // only if server active
             if (!active)
-                return true;
+                return false;
 
             NetworkIdentity[] identities = Resources.FindObjectsOfTypeAll<NetworkIdentity>();
             foreach (NetworkIdentity identity in identities)

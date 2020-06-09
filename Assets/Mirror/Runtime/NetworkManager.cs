@@ -128,7 +128,6 @@ namespace Mirror
         [Tooltip("Round Robin or Random order of Start Position selection")]
         public PlayerSpawnMethod playerSpawnMethod;
 
-
         /// <summary>
         /// List of prefabs that will be registered with the spawning system.
         /// <para>For each of these prefabs, ClientManager.RegisterPrefab() will be automatically invoke.</para>
@@ -447,7 +446,7 @@ namespace Mirror
         /// This starts a network "host" - a server and client in the same application.
         /// <para>The client returned from StartHost() is a special "local" client that communicates to the in-process server using a message queue instead of the real network. But in almost all other cases, it can be treated as a normal client.</para>
         /// </summary>
-        public virtual void StartHost()
+        public void StartHost()
         {
             mode = NetworkManagerMode.Host;
 
@@ -558,7 +557,7 @@ namespace Mirror
             }
 
             networkAddress = "localhost";
-            NetworkServer.ActivateLocalClientScene();
+            NetworkServer.ActivateHostScene();
             RegisterClientMessages();
 
             // ConnectLocalServer needs to be called AFTER RegisterClientMessages
