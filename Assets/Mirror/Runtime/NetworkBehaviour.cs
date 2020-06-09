@@ -104,13 +104,6 @@ namespace Mirror
                 syncVarHookGuard &= ~dirtyBit;
         }
 
-        // Deprecated 04/07/2019
-        /// <summary>
-        /// Obsolete: Use <see cref="syncObjects"/> instead.
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use syncObjects instead.")]
-        protected List<SyncObject> m_SyncObjects => syncObjects;
-
         /// <summary>
         /// objects that can synchronize themselves, such as synclists
         /// </summary>
@@ -834,10 +827,6 @@ namespace Mirror
         {
             return false;
         }
-
-        // Deprecated 11/21/2019
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Rename to OnSetHostVisibility instead.")]
-        public virtual void OnSetLocalVisibility(bool visible) { }
 
         /// <summary>
         /// Callback used by the visibility system for objects on a host.
