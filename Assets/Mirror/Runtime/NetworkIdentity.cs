@@ -156,7 +156,28 @@ namespace Mirror
         /// </summary>
         public static readonly Dictionary<uint, NetworkIdentity> spawned = new Dictionary<uint, NetworkIdentity>();
 
-        public NetworkBehaviour[] NetworkBehaviours => networkBehavioursCache = networkBehavioursCache ?? GetComponents<NetworkBehaviour>();
+        public NetworkBehaviour[] NetworkBehaviours
+        {
+            get
+            {
+                if (networkBehavioursCache == null)
+                {
+                    CreateNetworkBehavioursCache();
+                }
+                return networkBehavioursCache;
+            }
+        }
+
+        void CreateNetworkBehavioursCache()
+        {
+            networkBehavioursCache = GetComponents<NetworkBehaviour>();
+            if (NetworkBehaviours.Length > 64)
+            {
+                Debug.LogError($"Only 64 NetworkBehaviour components are allowed for NetworkIdentity: {name} because of the dirtyComponentMask", this);
+                // Log error once then resize array so that NetworkIdentity does not throw exceptions later
+                Array.Resize(ref networkBehavioursCache, 64);
+            }
+        }
 
         [SerializeField, HideInInspector] string m_AssetId;
 
@@ -248,7 +269,7 @@ namespace Mirror
 
         /// <summary>
         /// A callback that can be populated to be notified when the client-authority state of objects changes.
-        /// <para>Whenever an object is spawned using SpawnWithClientAuthority, or the client authority status of an object is changed with AssignClientAuthority or RemoveClientAuthority, then this callback will be invoked.</para>
+        /// <para>Whenever an object is spawned with client authority, or the client authority status of an object is changed with AssignClientAuthority or RemoveClientAuthority, then this callback will be invoked.</para>
         /// <para>This callback is only invoked on the server.</para>
         /// </summary>
         public static ClientAuthorityCallback clientAuthorityCallback;
@@ -852,11 +873,6 @@ namespace Mirror
             // clear 'written' variables
             ownerWritten = observersWritten = 0;
 
-            if (NetworkBehaviours.Length > 64)
-            {
-                Debug.LogError("Only 64 NetworkBehaviour components are allowed for NetworkIdentity: " + name + " because of the dirtyComponentMask");
-                return;
-            }
             ulong dirtyComponentsMask = GetDirtyMask(initialState);
 
             if (dirtyComponentsMask == 0L)
@@ -1322,10 +1338,6 @@ namespace Mirror
             ClearObservers();
         }
 
-        // MirrorUpdate is a hot path. Caching the vars msg is really worth it to
-        // avoid large amounts of allocations.
-        static UpdateVarsMessage varsMessage = new UpdateVarsMessage();
-
         // invoked by NetworkServer during Update()
         internal void ServerUpdate()
         {
@@ -1338,8 +1350,10 @@ namespace Mirror
                     OnSerializeAllSafely(false, ownerWriter, out int ownerWritten, observersWriter, out int observersWritten);
                     if (ownerWritten > 0 || observersWritten > 0)
                     {
-                        // populate cached UpdateVarsMessage and send
-                        varsMessage.netId = netId;
+                        UpdateVarsMessage varsMessage = new UpdateVarsMessage
+                        {
+                            netId = netId
+                        };
 
                         // send ownerWriter to owner
                         // (only if we serialized anything for owner)

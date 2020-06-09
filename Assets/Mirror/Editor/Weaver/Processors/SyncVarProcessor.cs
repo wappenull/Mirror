@@ -216,7 +216,11 @@ namespace Mirror.Weaver
                 setWorker.Append(setWorker.Create(OpCodes.Call, Weaver.setSyncVarHookGuard));
 
                 // call hook (oldValue, newValue)
-                setWorker.Append(setWorker.Create(OpCodes.Ldarg_0));
+                // dont add this (Ldarg_0) if method is static
+                if (!hookFunctionMethod.IsStatic)
+                {
+                    setWorker.Append(setWorker.Create(OpCodes.Ldarg_0));
+                }
                 setWorker.Append(setWorker.Create(OpCodes.Ldloc, oldValue));
                 setWorker.Append(setWorker.Create(OpCodes.Ldarg_1));
                 setWorker.Append(setWorker.Create(OpCodes.Callvirt, hookFunctionMethod));
@@ -300,8 +304,6 @@ namespace Mirror.Weaver
             {
                 if (fd.HasCustomAttribute(Weaver.SyncVarType))
                 {
-                    TypeDefinition resolvedField = fd.FieldType.Resolve();
-
                     if ((fd.Attributes & FieldAttributes.Static) != 0)
                     {
                         Weaver.Error($"{fd} cannot be static");
