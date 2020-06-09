@@ -92,7 +92,7 @@ namespace Mirror.Tests
         class NetworkDestroyExceptionNetworkBehaviour : NetworkBehaviour
         {
             public int called;
-            public override void OnNetworkDestroy()
+            public override void OnStopClient()
             {
                 ++called;
                 throw new Exception("some exception");
@@ -102,7 +102,23 @@ namespace Mirror.Tests
         class NetworkDestroyCalledNetworkBehaviour : NetworkBehaviour
         {
             public int called;
-            public override void OnNetworkDestroy() { ++called; }
+            public override void OnStopClient() { ++called; }
+        }
+
+        class StopServerCalledNetworkBehaviour : NetworkBehaviour
+        {
+            public int called;
+            public override void OnStopServer() { ++called; }
+        }
+
+        class StopServerExceptionNetworkBehaviour : NetworkBehaviour
+        {
+            public int called;
+            public override void OnStopServer()
+            {
+                ++called;
+                throw new Exception("some exception");
+            }
         }
 
         class SetHostVisibilityExceptionNetworkBehaviour : NetworkVisibility
@@ -1032,10 +1048,42 @@ namespace Mirror.Tests
             // OnNetworkDestroy from being called in the second one
             // exception will log an error
             LogAssert.ignoreFailingMessages = true;
-            identity.OnNetworkDestroy();
+            identity.OnStopClient();
             LogAssert.ignoreFailingMessages = false;
             Assert.That(compEx.called, Is.EqualTo(1));
             Assert.That(comp.called, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void OnStopServer()
+        {
+            // add components
+            StopServerCalledNetworkBehaviour comp = gameObject.AddComponent<StopServerCalledNetworkBehaviour>();
+
+            // make sure our test values are set to 0
+            Assert.That(comp.called, Is.EqualTo(0));
+
+            identity.OnStopServer();
+            Assert.That(comp.called, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void OnStopServerEx()
+        {
+            // add components
+            StopServerExceptionNetworkBehaviour compEx = gameObject.AddComponent<StopServerExceptionNetworkBehaviour>();
+
+            // make sure our test values are set to 0
+            Assert.That(compEx.called, Is.EqualTo(0));
+
+            // call OnNetworkDestroy in identity
+            // one component will throw an exception, but that shouldn't stop
+            // OnNetworkDestroy from being called in the second one
+            // exception will log an error
+            LogAssert.ignoreFailingMessages = true;
+            identity.OnStopServer();
+            LogAssert.ignoreFailingMessages = false;
+            Assert.That(compEx.called, Is.EqualTo(1));
         }
 
         [Test]
