@@ -263,8 +263,13 @@ namespace Mirror
         bool IsServerOnlineSceneChangeNeeded()
         {
             // Only change scene if the requested online scene is not blank, and is not already loaded
-            string loadedSceneName = SceneManager.GetActiveScene().name;
-            return !string.IsNullOrEmpty(onlineScene) && onlineScene != loadedSceneName && onlineScene != offlineScene;
+            return !string.IsNullOrEmpty(onlineScene) && !IsSceneActive(onlineScene) && onlineScene != offlineScene;
+        }
+
+        public static bool IsSceneActive(string scene)
+        {
+            Scene activeScene = SceneManager.GetActiveScene();
+            return activeScene.path == scene || activeScene.name == scene;
         }
 
         // full server setup code, without spawning objects yet
@@ -544,8 +549,17 @@ namespace Mirror
         public void StopHost()
         {
             OnStopHost();
-            StopServer();
+
+            // TODO try to move DisconnectLocalServer into StopClient(), and
+            // then call StopClient() before StopServer(). needs testing!.
+
+            // DisconnectLocalServer needs to be called so that the host client
+            // receives a DisconnectMessage too.
+            // fixes: https://github.com/vis2k/Mirror/issues/1515
+            NetworkClient.DisconnectLocalServer();
+
             StopClient();
+            StopServer();
         }
 
         /// <summary>
@@ -601,7 +615,7 @@ namespace Mirror
 
             // If this is the host player, StopServer will already be changing scenes.
             // Check loadingSceneAsync to ensure we don't double-invoke the scene change.
-            if (!string.IsNullOrEmpty(offlineScene) && SceneManager.GetActiveScene().name != offlineScene && loadingSceneAsync == null)
+            if (!string.IsNullOrEmpty(offlineScene) && !IsSceneActive(offlineScene) && loadingSceneAsync == null)
             {
                 ClientChangeScene(offlineScene, SceneOperation.Normal);
             }
@@ -1175,8 +1189,7 @@ namespace Mirror
             conn.isAuthenticated = true;
 
             // proceed with the login handshake by calling OnClientConnect
-            string loadedSceneName = SceneManager.GetActiveScene().name;
-            if (string.IsNullOrEmpty(onlineScene) || onlineScene == offlineScene || loadedSceneName == onlineScene)
+            if (string.IsNullOrEmpty(onlineScene) || onlineScene == offlineScene || IsSceneActive(onlineScene))
             {
                 clientLoadedScene = false;
                 OnClientConnect(conn);
