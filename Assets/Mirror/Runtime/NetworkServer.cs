@@ -293,10 +293,13 @@ namespace Mirror
                 //    avoid allocations, allow for multicast, etc.
                 connectionIdsCache.Clear();
                 bool result = true;
+                int count = 0;
                 foreach (KeyValuePair<int, NetworkConnectionToClient> kvp in connections)
                 {
                     if (sendToReadyOnly && !kvp.Value.isReady)
                         continue;
+
+                    count++;
 
                     // use local connection directly because it doesn't send via transport
                     if (kvp.Value is ULocalConnectionToClient)
@@ -312,7 +315,7 @@ namespace Mirror
                     result &= NetworkConnectionToClient.Send(connectionIdsCache, segment, channelId);
                 }
 
-                NetworkDiagnostics.OnSend(msg, channelId, segment.Count, connections.Count);
+                NetworkDiagnostics.OnSend(msg, channelId, segment.Count, count);
 
                 return result;
             }
@@ -560,14 +563,14 @@ namespace Mirror
         /// <para>There are several system message types which you can add handlers for. You can also add your own message types.</para>
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>
-        /// <param name="handler">Function handler which will be invoked for when this message type is received.</param>
+        /// <param name="handler">Function handler which will be invoked when this message type is received.</param>
         /// <param name="requireAuthentication">True if the message requires an authenticated connection</param>
         public static void RegisterHandler<T>(Action<NetworkConnection, T> handler, bool requireAuthentication = true) where T : IMessageBase, new()
         {
             int msgType = MessagePacker.GetId<T>();
             if (handlers.ContainsKey(msgType))
             {
-                if (logger.LogEnabled()) logger.Log("NetworkServer.RegisterHandler replacing " + msgType);
+                logger.LogWarning($"NetworkServer.RegisterHandler replacing hanlder for {typeof(T).FullName}, id={msgType}. If replacement is intentional, use ReplaceHandler instead to avoid this warning.");
             }
             handlers[msgType] = MessagePacker.MessageHandler(handler, requireAuthentication);
         }
@@ -577,11 +580,36 @@ namespace Mirror
         /// <para>There are several system message types which you can add handlers for. You can also add your own message types.</para>
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>
-        /// <param name="handler">Function handler which will be invoked for when this message type is received.</param>
+        /// <param name="handler">Function handler which will be invoked when this message type is received.</param>
         /// <param name="requireAuthentication">True if the message requires an authenticated connection</param>
         public static void RegisterHandler<T>(Action<T> handler, bool requireAuthentication = true) where T : IMessageBase, new()
         {
             RegisterHandler<T>((_, value) => { handler(value); }, requireAuthentication);
+        }
+
+        /// <summary>
+        /// Replaces a handler for a particular message type.
+        /// <see cref="RegisterHandler{T}(Action{NetworkConnection, T}, bool)"/>
+        /// </summary>
+        /// <typeparam name="T">Message type</typeparam>
+        /// <param name="handler">Function handler which will be invoked when this message type is received.</param>
+        /// <param name="requireAuthentication">True if the message requires an authenticated connection</param>
+        public static void ReplaceHandler<T>(Action<NetworkConnection, T> handler, bool requireAuthentication = true) where T : IMessageBase, new()
+        {
+            int msgType = MessagePacker.GetId<T>();
+            handlers[msgType] = MessagePacker.MessageHandler(handler, requireAuthentication);
+        }
+
+        /// <summary>
+        /// Replaces a handler for a particular message type.
+        /// <see cref="RegisterHandler{T}(Action{NetworkConnection, T}, bool)"/>
+        /// </summary>
+        /// <typeparam name="T">Message type</typeparam>
+        /// <param name="handler">Function handler which will be invoked when this message type is received.</param>
+        /// <param name="requireAuthentication">True if the message requires an authenticated connection</param>
+        public static void ReplaceHandler<T>(Action<T> handler, bool requireAuthentication = true) where T : IMessageBase, new()
+        {
+            ReplaceHandler<T>((_, value) => { handler(value); }, requireAuthentication);
         }
 
         /// <summary>
@@ -949,6 +977,14 @@ namespace Mirror
                 Debug.LogError("SpawnObject " + obj + " has no NetworkIdentity. Please add a NetworkIdentity to " + obj);
                 return;
             }
+
+            if (identity.SpawnedFromInstantiate)
+            {
+                // Using Instantiate on SceneObject is not allowed, so stop spawning here
+                // NetworkIdentity.Awake already logs error, no need to log a second error here
+                return;
+            }
+
             identity.connectionToClient = (NetworkConnectionToClient)ownerConnection;
 
             // special case to make sure hasAuthority is set
