@@ -1,13 +1,12 @@
-//#if UNITY_2019_2_OR_NEWER
+#if !UNITY_2019_2_OR_NEWER || UNITY_PERFORMANCE_TESTS_1_OR_OLDER
 using System.Collections;
-using Mirror;
 using NUnit.Framework;
 using Unity.PerformanceTesting;
 using UnityEngine;
 using UnityEngine.TestTools;
 
 
-namespace Tests
+namespace Mirror.Tests.Performance
 {
     class NetworkManagerTest : NetworkManager
     {
@@ -16,6 +15,13 @@ namespace Tests
             transport = gameObject.AddComponent<TelepathyTransport>();
             playerPrefab = new GameObject("testPlayerPrefab", typeof(NetworkIdentity));
             base.Awake();
+        }
+        public override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            // clean up new object created in awake
+            Destroy(playerPrefab);
         }
     }
     [Category("Performance")]
@@ -108,4 +114,4 @@ namespace Tests
         }
     }
 }
-//#endif
+#endif
