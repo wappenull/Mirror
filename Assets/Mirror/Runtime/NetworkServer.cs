@@ -993,12 +993,15 @@ namespace Mirror
                 return;
             }
 
+            NetworkBehaviour.CommandInfo commandInfo = identity.GetCommandInfo(msg.componentIndex, msg.functionHash);
+
             // Commands can be for player objects, OR other objects with client-authority
             // -> so if this connection's controller has a different netId then
             //    only allow the command if clientAuthorityOwner
             // -> (Wappen extension) Allow server to call CMD on both server objects and client objects. Server is god.
             bool isServer = NetworkServer.active;
-            if (identity.connectionToClient != conn && !isServer)
+            bool needAuthority = !commandInfo.ignoreAuthority && !isServer;
+            if (needAuthority && identity.connectionToClient != conn)
             {
                 logger.LogWarning("Command for object without authority [netId=" + msg.netId + "]");
                 return;

@@ -150,7 +150,7 @@ namespace Mirror
 
         /// <summary>
         /// List of prefabs that will be registered with the spawning system.
-        /// <para>For each of these prefabs, ClientManager.RegisterPrefab() will be automatically invoke.</para>
+        /// <para>For each of these prefabs, ClientScene.RegisterPrefab() will be automatically invoked.</para>
         /// </summary>
         [FormerlySerializedAs("m_SpawnPrefabs"), HideInInspector]
         public List<GameObject> spawnPrefabs = new List<GameObject>();
@@ -734,18 +734,17 @@ namespace Mirror
             NetworkServer.RegisterHandler<AddPlayerMessage>(OnServerAddPlayerInternal);
             NetworkServer.RegisterHandler<ErrorMessage>(OnServerErrorInternal, false);
 
-            // Network Server initially registers it's own handlers for these, so we replace them here.
+            // Network Server initially registers its own handler for this, so we replace it here.
             NetworkServer.ReplaceHandler<ReadyMessage>(OnServerReadyMessageInternal);
         }
 
         void RegisterClientMessages()
         {
-            // Network Client initially registers it's own handlers for these, so we replace them here.
-            NetworkClient.ReplaceHandler<ConnectMessage>(OnClientConnectInternal, false);
-            NetworkClient.ReplaceHandler<DisconnectMessage>(OnClientDisconnectInternal, false);
-            NetworkClient.ReplaceHandler<NotReadyMessage>(OnClientNotReadyMessageInternal);
-            NetworkClient.ReplaceHandler<ErrorMessage>(OnClientErrorInternal, false);
-            NetworkClient.ReplaceHandler<SceneMessage>(OnClientSceneInternal, false);
+            NetworkClient.RegisterHandler<ConnectMessage>(OnClientConnectInternal, false);
+            NetworkClient.RegisterHandler<DisconnectMessage>(OnClientDisconnectInternal, false);
+            NetworkClient.RegisterHandler<NotReadyMessage>(OnClientNotReadyMessageInternal);
+            NetworkClient.RegisterHandler<ErrorMessage>(OnClientErrorInternal, false);
+            NetworkClient.RegisterHandler<SceneMessage>(OnClientSceneInternal, false);
 
             if (playerPrefab != null)
             {
@@ -1023,6 +1022,18 @@ namespace Mirror
             }
         }
 
+        // finish load scene part for server-only. . makes code easier and is
+        // necessary for FinishStartServer later.
+        void FinishLoadSceneServerOnly()
+        {
+            // debug message is very important. if we ever break anything then
+            // it's very obvious to notice.
+            logger.Log("Finished loading scene in server-only mode.");
+
+            NetworkServer.SpawnObjects();
+            OnServerSceneChanged(networkSceneName);
+        }
+
         // finish load scene part for client-only. makes code easier and is
         // necessary for FinishStartClient later.
         void FinishLoadSceneClientOnly()
@@ -1042,18 +1053,6 @@ namespace Mirror
             {
                 OnClientSceneChanged(NetworkClient.connection);
             }
-        }
-
-        // finish load scene part for server-only. . makes code easier and is
-        // necessary for FinishStartServer later.
-        void FinishLoadSceneServerOnly()
-        {
-            // debug message is very important. if we ever break anything then
-            // it's very obvious to notice.
-            logger.Log("Finished loading scene in server-only mode.");
-
-            NetworkServer.SpawnObjects();
-            OnServerSceneChanged(networkSceneName);
         }
 
         #endregion
@@ -1093,6 +1092,31 @@ namespace Mirror
         {
             if (logger.LogEnabled()) logger.Log("UnRegisterStartPosition: (" + start.gameObject.name + ") " + start.position);
             startPositions.Remove(start);
+        }
+
+        /// <summary>
+        /// This finds a spawn position based on NetworkStartPosition objects in the scene.
+        /// <para>This is used by the default implementation of OnServerAddPlayer.</para>
+        /// </summary>
+        /// <returns>Returns the transform to spawn a player at, or null.</returns>
+        public Transform GetStartPosition()
+        {
+            // first remove any dead transforms
+            startPositions.RemoveAll(t => t == null);
+
+            if (startPositions.Count == 0)
+                return null;
+
+            if (playerSpawnMethod == PlayerSpawnMethod.Random)
+            {
+                return startPositions[UnityEngine.Random.Range(0, startPositions.Count)];
+            }
+            else
+            {
+                Transform startPosition = startPositions[startPositionIndex];
+                startPositionIndex = (startPositionIndex + 1) % startPositions.Count;
+                return startPosition;
+            }
         }
 
         #endregion
@@ -1307,31 +1331,6 @@ namespace Mirror
                 : Instantiate(playerPrefab);
 
             NetworkServer.AddPlayerForConnection(conn, player);
-        }
-
-        /// <summary>
-        /// This finds a spawn position based on NetworkStartPosition objects in the scene.
-        /// <para>This is used by the default implementation of OnServerAddPlayer.</para>
-        /// </summary>
-        /// <returns>Returns the transform to spawn a player at, or null.</returns>
-        public Transform GetStartPosition()
-        {
-            // first remove any dead transforms
-            startPositions.RemoveAll(t => t == null);
-
-            if (startPositions.Count == 0)
-                return null;
-
-            if (playerSpawnMethod == PlayerSpawnMethod.Random)
-            {
-                return startPositions[UnityEngine.Random.Range(0, startPositions.Count)];
-            }
-            else
-            {
-                Transform startPosition = startPositions[startPositionIndex];
-                startPositionIndex = (startPositionIndex + 1) % startPositions.Count;
-                return startPosition;
-            }
         }
 
         // Deprecated 5/2/2020

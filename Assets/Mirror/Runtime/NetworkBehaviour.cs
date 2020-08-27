@@ -182,7 +182,7 @@ namespace Mirror
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        protected void SendCommandInternal(Type invokeClass, string cmdName, NetworkWriter writer, int channelId)
+        protected void SendCommandInternal(Type invokeClass, string cmdName, NetworkWriter writer, int channelId, bool ignoreAuthority = false)
         {
             // this was in Weaver before
             // NOTE: we could remove this later to allow calling Cmds on Server
@@ -193,7 +193,7 @@ namespace Mirror
                 return;
             }
             // local players can always send commands, regardless of authority, other objects must have authority.
-            if (!(isLocalPlayer || hasAuthority || isServer)) // Wappen: Fix for Mirror3->6
+            if (!(ignoreAuthority || isLocalPlayer || hasAuthority || isServer)) // Wappen: Fix for Mirror3->6
             {
                 logger.LogWarning($"Trying to send command for object without authority. {invokeClass.ToString()}.{cmdName}");
                 return;
@@ -239,7 +239,7 @@ namespace Mirror
 
         #region Client RPCs
         [EditorBrowsable(EditorBrowsableState.Never)]
-        protected void SendRPCInternal(Type invokeClass, string rpcName, NetworkWriter writer, int channelId)
+        protected void SendRPCInternal(Type invokeClass, string rpcName, NetworkWriter writer, int channelId, bool excludeOwner)
         {
             // this was in Weaver before
             if (!NetworkServer.active)
@@ -268,7 +268,10 @@ namespace Mirror
 #endif
             };
 
-            NetworkServer.SendToReady(netIdentity, message, channelId);
+            // The public facing parameter is excludeOwner in [ClientRpc]
+            // so we negate it here to logically align with SendToReady.
+            bool includeOwner = !excludeOwner;
+            NetworkServer.SendToReady(netIdentity, message, includeOwner, channelId);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -380,54 +383,75 @@ namespace Mirror
 
         protected class Invoker
         {
-            public MirrorInvokeType invokeType;
             public Type invokeClass;
+            public MirrorInvokeType invokeType;
             public CmdDelegate invokeFunction;
+            public bool cmdIgnoreAuthority;
+
+            public bool AreEqual(Type invokeClass, MirrorInvokeType invokeType, CmdDelegate function)
+            {
+                return (this.invokeClass == invokeClass &&
+                     this.invokeType == invokeType &&
+                     invokeFunction == function);
+            }
+        }
+
+        public struct CommandInfo
+        {
+            public bool ignoreAuthority;
         }
 
         static readonly Dictionary<int, Invoker> cmdHandlerDelegates = new Dictionary<int, Invoker>();
 
         // helper function register a Command/Rpc/SyncEvent delegate
         [EditorBrowsable(EditorBrowsableState.Never)]
-        protected static void RegisterDelegate(Type invokeClass, string cmdName, MirrorInvokeType invokerType, CmdDelegate func)
+        protected static void RegisterDelegate(Type invokeClass, string cmdName, MirrorInvokeType invokerType, CmdDelegate func, bool cmdIgnoreAuthority = false)
         {
             // type+func so Inventory.RpcUse != Equipment.RpcUse
             int cmdHash = GetMethodHash(invokeClass, cmdName);
 
-            //// DEBUG
-            //if( invokerType == MirrorInvokeType.Command && invokeClass.Name == "DungenPlayer" )
-            //{
-            //    Debug.Log( $"Registering {cmdName} as {cmdHash}" );
-            //}
+            if (CheckIfDeligateExists(invokeClass, invokerType, func, cmdHash))
+                return;
 
-            if (cmdHandlerDelegates.ContainsKey(cmdHash))
-            {
-                // something already registered this hash
-                Invoker oldInvoker = cmdHandlerDelegates[cmdHash];
-                if (oldInvoker.invokeClass == invokeClass &&
-                    oldInvoker.invokeType == invokerType &&
-                    oldInvoker.invokeFunction == func)
-                {
-                    // it's all right,  it was the same function
-                    return;
-                }
-
-                logger.LogError($"Function {oldInvoker.invokeClass}.{oldInvoker.invokeFunction.GetMethodName()} and {invokeClass}.{func.GetMethodName()} have the same hash.  Please rename one of them");
-            }
             Invoker invoker = new Invoker
             {
                 invokeType = invokerType,
                 invokeClass = invokeClass,
-                invokeFunction = func
+                invokeFunction = func,
+                cmdIgnoreAuthority = cmdIgnoreAuthority,
             };
+
             cmdHandlerDelegates[cmdHash] = invoker;
-            if (logger.LogEnabled()) logger.Log("RegisterDelegate hash:" + cmdHash + " invokerType: " + invokerType + " method:" + func.GetMethodName());
+
+            if (logger.LogEnabled())
+            {
+                string ingoreAuthorityMessage = invokerType == MirrorInvokeType.Command ? $" IgnoreAuthority:{cmdIgnoreAuthority}" : "";
+                logger.Log($"RegisterDelegate hash: {cmdHash} invokerType: {invokerType} method: {func.GetMethodName()}{ingoreAuthorityMessage}");
+            }
+        }
+
+        static bool CheckIfDeligateExists(Type invokeClass, MirrorInvokeType invokerType, CmdDelegate func, int cmdHash)
+        {
+            if (cmdHandlerDelegates.ContainsKey(cmdHash))
+            {
+                // something already registered this hash
+                Invoker oldInvoker = cmdHandlerDelegates[cmdHash];
+                if (oldInvoker.AreEqual(invokeClass, invokerType, func))
+                {
+                    // it's all right,  it was the same function
+                    return true;
+                }
+
+                logger.LogError($"Function {oldInvoker.invokeClass}.{oldInvoker.invokeFunction.GetMethodName()} and {invokeClass}.{func.GetMethodName()} have the same hash.  Please rename one of them");
+            }
+
+            return false;
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public static void RegisterCommandDelegate(Type invokeClass, string cmdName, CmdDelegate func)
+        public static void RegisterCommandDelegate(Type invokeClass, string cmdName, CmdDelegate func, bool ignoreAuthority)
         {
-            RegisterDelegate(invokeClass, cmdName, MirrorInvokeType.Command, func);
+            RegisterDelegate(invokeClass, cmdName, MirrorInvokeType.Command, func, ignoreAuthority);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -451,9 +475,7 @@ namespace Mirror
 
         static bool GetInvokerForHash(int cmdHash, MirrorInvokeType invokeType, out Invoker invoker)
         {
-            if (cmdHandlerDelegates.TryGetValue(cmdHash, out invoker) &&
-                invoker != null &&
-                invoker.invokeType == invokeType)
+            if (cmdHandlerDelegates.TryGetValue(cmdHash, out invoker) && invoker != null && invoker.invokeType == invokeType)
             {
                 return true;
             }
@@ -462,19 +484,31 @@ namespace Mirror
             // (no need to throw an error, an attacker might just be trying to
             //  call an cmd with an rpc's hash)
             if (logger.LogEnabled()) logger.Log("GetInvokerForHash hash:" + cmdHash + " not found");
+
             return false;
         }
 
         // InvokeCmd/Rpc/SyncEventDelegate can all use the same function here
         internal bool InvokeHandlerDelegate(int cmdHash, MirrorInvokeType invokeType, NetworkReader reader)
         {
-            if (GetInvokerForHash(cmdHash, invokeType, out Invoker invoker) &&
-                invoker.invokeClass.IsInstanceOfType(this))
+            if (GetInvokerForHash(cmdHash, invokeType, out Invoker invoker) && invoker.invokeClass.IsInstanceOfType(this))
             {
                 invoker.invokeFunction(this, reader);
                 return true;
             }
             return false;
+        }
+
+        internal CommandInfo GetCommandInfo(int cmdHash)
+        {
+            if (GetInvokerForHash(cmdHash, MirrorInvokeType.Command, out Invoker invoker) && invoker.invokeClass.IsInstanceOfType(this))
+            {
+                return new CommandInfo
+                {
+                    ignoreAuthority = invoker.cmdIgnoreAuthority
+                };
+            }
+            return default;
         }
 
         [Obsolete("Use NetworkBehaviour.GetDelegate instead.")]

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Mono.CecilX;
 
 namespace Mirror.Weaver
@@ -148,6 +149,26 @@ namespace Mirror.Weaver
             return null;
         }
 
+        public static CustomAttribute GetCustomAttribute(this ICustomAttributeProvider method, TypeReference attribute)
+        {
+            foreach (CustomAttribute ca in method.CustomAttributes)
+            {
+                if (ca.AttributeType.FullName == attribute.FullName)
+                    return ca;
+            }
+            return null;
+        }
+
+        public static bool HasCustomAttribute(this ICustomAttributeProvider attributeProvider, string attributeName)
+        {
+            foreach (CustomAttribute ca in attributeProvider.CustomAttributes)
+            {
+                if (ca.AttributeType.FullName == attributeName)
+                    return true;
+            }
+            return false;
+        }
+
         public static bool HasCustomAttribute(this ICustomAttributeProvider attributeProvider, TypeReference attribute)
         {
             foreach (CustomAttribute ca in attributeProvider.CustomAttributes)
@@ -179,6 +200,17 @@ namespace Mirror.Weaver
                     return md;
             }
             return null;
+        }
+
+        public static List<MethodDefinition> GetMethods(this TypeDefinition td, string methodName)
+        {
+            List<MethodDefinition> methods = new List<MethodDefinition>();
+            foreach (MethodDefinition md in td.Methods)
+            {
+                if (md.Name == methodName)
+                    methods.Add(md);
+            }
+            return methods;
         }
 
         /// <summary>
