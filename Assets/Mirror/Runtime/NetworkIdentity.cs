@@ -1336,7 +1336,7 @@ namespace Mirror
         /// <param name="reader"></param>
         internal void HandleSyncEvent(int componentIndex, int eventHash, NetworkReader reader, string debugName)
         {
-            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader, debugName);
+            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader, debugName:debugName);
         }
 
         /// <summary>
@@ -1348,7 +1348,7 @@ namespace Mirror
         /// <param name="senderConnection"></param>
         internal void HandleCommand(int componentIndex, int cmdHash, NetworkReader reader, NetworkConnectionToClient senderConnection, string debugName = null)
         {
-            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader);
+            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader, senderConnection, debugName:debugName);
         }
 
         /// <summary>
@@ -1387,7 +1387,7 @@ namespace Mirror
         /// <param name="reader"></param>
         internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader, string debugName )
         {
-            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader, debugName);
+            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader, debugName:debugName);
         }
 
         internal void ClearObservers()
