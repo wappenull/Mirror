@@ -113,6 +113,7 @@
     <Compile Include="WeaverMessageTests~\MessageMemberInterface.cs" />
     <Compile Include="WeaverMessageTests~\MessageSelfReferencing.cs" />
     <Compile Include="WeaverMessageTests~\MessageValid.cs" />
+    <Compile Include="WeaverMessageTests~\MessageWithBaseClass.cs" />
     <Compile Include="WeaverMonoBehaviourTests~\MonoBehaviourClient.cs" />
     <Compile Include="WeaverMonoBehaviourTests~\MonoBehaviourClientCallback.cs" />
     <Compile Include="WeaverMonoBehaviourTests~\MonoBehaviourClientRpc.cs" />
@@ -178,6 +179,7 @@
     <Compile Include="WeaverSyncDictionaryTests~\SyncDictionaryStructKeyWithCustomDeserializeOnly.cs" />
     <Compile Include="WeaverSyncDictionaryTests~\SyncDictionaryStructKeyWithCustomMethods.cs" />
     <Compile Include="WeaverSyncDictionaryTests~\SyncDictionaryStructKeyWithCustomSerializeOnly.cs" />
+    <Compile Include="WeaverSyncEventTests~\MultipleSyncEvent.cs" />
     <Compile Include="WeaverSyncListTests~\SyncList.cs" />
     <Compile Include="WeaverSyncListTests~\SyncListByteValid.cs" />
     <Compile Include="WeaverSyncListTests~\SyncListErrorForGenericStruct.cs" />

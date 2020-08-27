@@ -10,16 +10,16 @@ uMMORPG was possible with \<6000 lines of code. We needed a networking library t
 -   **Full Source included** for debugging convenience
 -   Several working examples included
 -   Active [Discord](https://discord.gg/2BvnM4R) for prompt support
--   **Requires Unity 2018.3.6+ and Runtime .Net 4.x (default in Unity 2019) and .Net 2.0 Compatibility is recommended**
+-   **Requires Unity 2018.4 LTS and Runtime .Net 4.x (default in Unity 2019) and .Net 2.0 Compatibility is recommended**
 -   Alpha / Beta Unity versions cannot be supported
 
 **Multiple Transports Available:**
 -   **TCP** ([Telepathy](Transports/Telepathy.md) and [Apathy](https://mirror-networking.com/apathy/) and [Booster](https://mirror-networking.com/booster/))
 -   **UDP** ([ENet](Transports/Ignorance.md) and [LiteNetLib](Transports/LiteNetLib4Mirror.md))
 -   **WebGL** ([Secure Web Sockets](Transports/WebSockets.md))
--   **Steam** ([Steamworks.Net or FacePunch](Transports/Fizzy.md))
+-   **Steam** ([Steamworks.Net](Transports/FizzySteamworks.md)) and ([FacePunch](Transports/FizzyFacepunch.md))
 -   **Multiplexer** ([Multiplexer](Transports/Multiplexer.md))
--   **Fallback** ([Fallback](Fallback.md))
+-   **Fallback** ([Fallback](Transports/Fallback.md))
 
 **List Server**
 

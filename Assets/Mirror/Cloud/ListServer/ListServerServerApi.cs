@@ -6,8 +6,8 @@ namespace Mirror.Cloud.ListServerService
 {
     public sealed class ListServerServerApi : ListServerBaseApi, IListServerServerApi
     {
-        const int PingInterval = 15;
-        const int MaxPingFails = 3;
+        const int PingInterval = 20;
+        const int MaxPingFails = 15;
 
         ServerJson currentServer;
         string serverId;
@@ -49,31 +49,10 @@ namespace Mirror.Cloud.ListServerService
         public void AddServer(ServerJson server)
         {
             if (added) { Logger.LogWarning("AddServer called when server was already adding or added"); return; }
-            bool valid = ValidateServerJson(server);
+            bool valid = server.Validate();
             if (!valid) { return; }
 
             runner.StartCoroutine(addServer(server));
-        }
-
-        bool ValidateServerJson(ServerJson server)
-        {
-            if (string.IsNullOrEmpty(server.protocol))
-            {
-                Logger.LogError("ServerJson should not have empty protocol");
-                return false;
-            }
-            if (server.port == 0)
-            {
-                Logger.LogError("ServerJson should not have port equal 0");
-                return false;
-            }
-            if (server.maxPlayerCount == 0)
-            {
-                Logger.LogError("ServerJson should not have maxPlayerCount equal 0");
-                return false;
-            }
-
-            return true;
         }
 
         public void UpdateServer(int newPlayerCount)
@@ -94,7 +73,9 @@ namespace Mirror.Cloud.ListServerService
                 displayName = server.displayName,
                 playerCount = server.playerCount,
                 maxPlayerCount = server.maxPlayerCount,
+                customData = server.customData,
             };
+            partialServer.Validate();
 
             runner.StartCoroutine(updateServer(partialServer));
         }
@@ -102,6 +83,12 @@ namespace Mirror.Cloud.ListServerService
         public void RemoveServer()
         {
             if (!added) { return; }
+
+            if (string.IsNullOrEmpty(serverId))
+            {
+                Debug.LogWarning("Can not remove server because serverId was empty");
+                return;
+            }
 
             stopPingCoroutine();
             runner.StartCoroutine(removeServer());
@@ -176,7 +163,11 @@ namespace Mirror.Cloud.ListServerService
             while (pingFails <= MaxPingFails)
             {
                 yield return new WaitForSeconds(PingInterval);
-                if (skipNextPing) { continue; }
+                if (skipNextPing)
+                {
+                    skipNextPing = false;
+                    continue;
+                }
 
                 sending = true;
                 UnityWebRequest request = requestCreator.Patch("servers/" + serverId, new EmptyJson());
@@ -210,6 +201,12 @@ namespace Mirror.Cloud.ListServerService
 
         void removeServerWithoutCoroutine()
         {
+            if (string.IsNullOrEmpty(serverId))
+            {
+                Debug.LogWarning("Can not remove server becuase serverId was empty");
+                return;
+            }
+
             UnityWebRequest request = requestCreator.Delete("servers/" + serverId);
             UnityWebRequestAsyncOperation operation = request.SendWebRequest();
 

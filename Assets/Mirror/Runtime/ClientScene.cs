@@ -305,7 +305,7 @@ namespace Mirror
                 return;
             }
 
-            if (identity.assetId != Guid.Empty)
+            if (identity.assetId != Guid.Empty && identity.assetId != newAssetId)
             {
                 logger.LogError($"Could not register '{prefab.name}' to {newAssetId} because it already had an AssetId, Existing assetId {identity.assetId}");
                 return;
@@ -444,7 +444,7 @@ namespace Mirror
                 return;
             }
 
-            if (identity.assetId != Guid.Empty)
+            if (identity.assetId != Guid.Empty && identity.assetId != newAssetId)
             {
                 logger.LogError($"Could not register Handler for '{prefab.name}' to {newAssetId} because it already had an AssetId, Existing assetId {identity.assetId}");
                 return;
@@ -725,7 +725,7 @@ namespace Mirror
             }
         }
 
-        static void ApplySpawnPayload(NetworkIdentity identity, SpawnMessage msg)
+        internal static void ApplySpawnPayload(NetworkIdentity identity, SpawnMessage msg)
         {
             if (msg.assetId != Guid.Empty)
                 identity.assetId = msg.assetId;
@@ -768,37 +768,50 @@ namespace Mirror
 
         internal static void OnSpawn(SpawnMessage msg)
         {
-            if (msg.assetId == Guid.Empty && msg.sceneId == 0)
-            {
-                logger.LogError("OnObjSpawn netId: " + msg.netId + " has invalid asset Id");
-                return;
-            }
             if (logger.LogEnabled()) logger.Log($"Client spawn handler instantiating netId={msg.netId} assetID={msg.assetId} sceneId={msg.sceneId} pos={msg.position}");
 
-            // was the object already spawned?
-            NetworkIdentity identity = GetExistingObject(msg.netId);
-
-            if (identity == null)
+            if (FindOrSpawnObject(msg, out NetworkIdentity identity))
             {
-                // Wappen hack, prioritize object with custom assetId which has custom spawnHandlers entry
-                if( spawnHandlers.ContainsKey( msg.assetId ) )
-                {
-                    // This is custom assetId
-                    identity = SpawnPrefab( msg );
-                }
-                else
-                {
-                    identity = msg.sceneId == 0 ? SpawnPrefab(msg) : SpawnSceneObject(msg);
-                }
+                ApplySpawnPayload(identity, msg);
             }
+        }
+
+        /// <summary>
+        /// Finds Existing Object with NetId or spawns a new one using AssetId or sceneId
+        /// </summary>
+        internal static bool FindOrSpawnObject(SpawnMessage msg, out NetworkIdentity identity)
+        {
+            // was the object already spawned?
+            identity = GetExistingObject(msg.netId);
+
+            // Wappen hack, prioritize object with custom assetId which has custom spawnHandlers entry
+            if( identity == null && spawnHandlers.ContainsKey( msg.assetId ) )
+            {
+                // This is custom assetId
+                identity = SpawnPrefab( msg );
+            }
+            
+            // if found, return early
+            if (identity != null)
+            {
+                return true;
+            }
+
+            if (msg.assetId == Guid.Empty && msg.sceneId == 0)
+            {
+                logger.LogError($"OnSpawn message with netId '{msg.netId}' has no AssetId or sceneId");
+                return false;
+            }
+
+            identity = msg.sceneId == 0 ? SpawnPrefab(msg) : SpawnSceneObject(msg);
 
             if (identity == null)
             {
                 logger.LogError($"Could not spawn assetId={msg.assetId} scene={msg.sceneId} netId={msg.netId}");
-                return;
+                return false;
             }
 
-            ApplySpawnPayload(identity, msg);
+            return true;
         }
 
         static NetworkIdentity GetExistingObject(uint netid)
@@ -824,32 +837,27 @@ namespace Mirror
                 GameObject obj = handler(msg);
                 if (obj == null)
                 {
-                    logger.LogWarning("Client spawn handler for " + msg.assetId + " returned null");
+                    logger.LogError($"Spawn Handler returned null, Handler assetId '{msg.assetId}'");
                     return null;
                 }
-
-                // Explicit check result from spawn handler
-                NetworkIdentity localObject = obj.GetComponent<NetworkIdentity>();
-                if (localObject == null)
+                NetworkIdentity identity = obj.GetComponent<NetworkIdentity>();
+                if (identity == null)
                 {
-                    Debug.LogError("Client object spawned for " + msg.assetId + " does not have a network identity");
+                    logger.LogError($"Object Spawned by handler did not have a NetworkIdentity, Handler assetId '{msg.assetId}'");
                     return null;
                 }
-                
-                // Wappen: ApplySpawnPayload will be called after this, no need to call here
-                return localObject;
+                return identity;
             }
-
-            Debug.LogError("Failed to spawn server object, did you forget to add it to the NetworkManager? assetId=" + msg.assetId + " netId=" + msg.netId + "dbg: " + msg.debugName);
+            logger.LogError($"Failed to spawn server object, did you forget to add it to the NetworkManager? assetId={msg.assetId} netId={msg.netId} dbg={msg.debugName}");
             return null;
         }
 
         static NetworkIdentity SpawnSceneObject(SpawnMessage msg)
         {
-            NetworkIdentity spawnedId = SpawnSceneObject(msg.sceneId);
-            if (spawnedId == null)
+            NetworkIdentity identity = GetAndRemoveSceneObject(msg.sceneId);
+            if (identity == null)
             {
-                logger.LogError("Spawn scene object not found for " + msg.sceneId.ToString("X") + " SpawnableObjects.Count=" + spawnableObjects.Count);
+                logger.LogError($"Spawn scene object not found for {msg.sceneId.ToString("X")} SpawnableObjects.Count={spawnableObjects.Count}");
 
                 // dump the whole spawnable objects dict for easier debugging
                 if (logger.LogEnabled())
@@ -859,18 +867,17 @@ namespace Mirror
                 }
             }
 
-            if (logger.LogEnabled()) logger.Log("Client spawn for [netId:" + msg.netId + "] [sceneId:" + msg.sceneId + "] obj:" + spawnedId);
-            return spawnedId;
+            if (logger.LogEnabled()) logger.Log("Client spawn for [netId:" + msg.netId + "] [sceneId:" + msg.sceneId + "] obj:" + identity);
+            return identity;
         }
 
-        static NetworkIdentity SpawnSceneObject(ulong sceneId)
+        static NetworkIdentity GetAndRemoveSceneObject(ulong sceneId)
         {
             if (spawnableObjects.TryGetValue(sceneId, out NetworkIdentity identity))
             {
                 spawnableObjects.Remove(sceneId);
                 return identity;
             }
-            logger.LogWarning("Could not find scene object with sceneid:" + sceneId.ToString("X"));
             return null;
         }
 

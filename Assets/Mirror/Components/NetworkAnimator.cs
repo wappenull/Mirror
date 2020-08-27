@@ -41,7 +41,7 @@ namespace Mirror
         // multiple layers
         int[] animationHash;
         int[] transitionHash;
-        float sendTimer;
+        float nextSendTime;
 
         bool SendMessagesAllowed
         {
@@ -144,9 +144,10 @@ namespace Mirror
 
         void CheckSendRate()
         {
-            if (SendMessagesAllowed && syncInterval > 0 && sendTimer < Time.time)
+            float now = Time.time;
+            if (SendMessagesAllowed && syncInterval >= 0 && now > nextSendTime)
             {
-                sendTimer = Time.time + syncInterval;
+                nextSendTime = now + syncInterval;
 
                 using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
                 {
@@ -188,10 +189,9 @@ namespace Mirror
             // usually transitions will be triggered by parameters, if not, play anims directly.
             // NOTE: this plays "animations", not transitions, so any transitions will be skipped.
             // NOTE: there is no API to play a transition(?)
-            if (stateHash != 0)
+            if (stateHash != 0 && animator.enabled)
             {
-                if (animator.enabled)
-                    animator.Play(stateHash, layerId, normalizedTime);
+                animator.Play(stateHash, layerId, normalizedTime);
             }
 
             ReadParameters(reader);
@@ -399,6 +399,9 @@ namespace Mirror
 
                 if (ClientScene.readyConnection != null)
                     CmdOnAnimationTriggerServerMessage(hash);
+
+                // call on client right away
+                HandleAnimTriggerMsg(hash);
             }
             else
             {
@@ -445,6 +448,9 @@ namespace Mirror
 
                 if (ClientScene.readyConnection != null)
                     CmdOnAnimationResetTriggerServerMessage(hash);
+
+                // call on client right away
+                HandleAnimResetTriggerMsg(hash);
             }
             else
             {
@@ -501,7 +507,9 @@ namespace Mirror
                 return;
 
             // handle and broadcast
-            HandleAnimTriggerMsg(hash);
+            // host should have already the trigger
+            if (!isClient)
+                HandleAnimTriggerMsg(hash);
             RpcOnAnimationTriggerClientMessage(hash);
         }
 
@@ -513,7 +521,9 @@ namespace Mirror
                 return;
 
             // handle and broadcast
-            HandleAnimResetTriggerMsg(hash);
+            // host should have already the trigger
+            if (!isClient)
+                HandleAnimResetTriggerMsg(hash);
             RpcOnAnimationResetTriggerClientMessage(hash);
         }
 
@@ -538,8 +548,8 @@ namespace Mirror
         [ClientRpc]
         void RpcOnAnimationTriggerClientMessage(int hash)
         {
-            // host handles this before it is sent
-            if (isServer) return;
+            // host/owner handles this before it is sent
+            if (isServer || (clientAuthority && hasAuthority)) return;
 
             HandleAnimTriggerMsg(hash);
         }
@@ -547,8 +557,8 @@ namespace Mirror
         [ClientRpc]
         void RpcOnAnimationResetTriggerClientMessage(int hash)
         {
-            // host handles this before it is sent
-            if (isServer) return;
+            // host/owner handles this before it is sent
+            if (isServer || (clientAuthority && hasAuthority)) return;
 
             HandleAnimResetTriggerMsg(hash);
         }

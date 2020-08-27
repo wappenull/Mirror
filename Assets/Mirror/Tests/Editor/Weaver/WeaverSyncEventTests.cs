@@ -11,11 +11,9 @@ namespace Mirror.Weaver.Tests
         }
 
         [Test]
-        public void ErrorWhenSyncEventDoesntStartWithEvent()
+        public void MultipleSyncEvent()
         {
-            Assert.That(weaverErrors, Contains.Item("DoCoolThingsWithExcitingPeople must start with Event.  " +
-                "Consider renaming it to EventDoCoolThingsWithExcitingPeople " +
-                "(at WeaverSyncEventTests.ErrorWhenSyncEventDoesntStartWithEvent.ErrorWhenSyncEventDoesntStartWithEvent/MySyncEventDelegate WeaverSyncEventTests.ErrorWhenSyncEventDoesntStartWithEvent.ErrorWhenSyncEventDoesntStartWithEvent::DoCoolThingsWithExcitingPeople)"));
+            Assert.That(weaverErrors, Is.Empty);
         }
 
         [Test]
