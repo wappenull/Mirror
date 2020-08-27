@@ -178,6 +178,8 @@ namespace Mirror.Websocket
             return true;
         }
 
+        public bool enabled;
+
         async Task ReceiveLoopAsync(WebSocket webSocket, CancellationToken token)
         {
             int connectionId = NextConnectionId();
@@ -193,6 +195,11 @@ namespace Mirror.Websocket
                 while (true)
                 {
                     WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), token);
+
+                    if (!enabled)
+                    {
+                        await WaitForEnabledAsync();
+                    }
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
@@ -225,6 +232,14 @@ namespace Mirror.Websocket
             {
                 clients.Remove(connectionId);
                 Disconnected?.Invoke(connectionId);
+            }
+        }
+
+        async Task WaitForEnabledAsync()
+        {
+            while (!enabled)
+            {
+                await Task.Delay(10);
             }
         }
 
