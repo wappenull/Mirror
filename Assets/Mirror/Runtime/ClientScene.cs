@@ -125,9 +125,9 @@ namespace Mirror
 
         // Deprecated 5/2/2020
         /// <summary>
-        /// Obsolete: Removed as a security risk. Use <see cref="NetworkServer.RemovePlayerForConnection(NetworkConnection, GameObject, bool)"/> instead.
+        /// Obsolete: Removed as a security risk. Use <see cref="NetworkServer.RemovePlayerForConnection(NetworkConnection, bool)">NetworkServer.RemovePlayerForConnection</see> instead.
         /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Removed as a security risk. Use NetworkServer.RemovePlayerForConnection(NetworkConnection conn, GameObject player, bool keepAuthority = false) instead", true)]
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Removed as a security risk. Use NetworkServer.RemovePlayerForConnection(NetworkConnection conn, bool keepAuthority = false) instead", true)]
         public static bool RemovePlayer() { return false; }
 
         /// <summary>
@@ -667,26 +667,37 @@ namespace Mirror
         /// </summary>
         public static void DestroyAllClientObjects()
         {
-            foreach (NetworkIdentity identity in NetworkIdentity.spawned.Values)
+            // user can modify spawned lists which causes InvalidOperationException
+            // list can modified either in UnSpawnHandler or in OnDisable/OnDestroy
+            // we need the Try/Catch so that the rest of the shutdown does not get stopped
+            try
             {
-                if (identity != null && identity.gameObject != null)
+                foreach (NetworkIdentity identity in NetworkIdentity.spawned.Values)
                 {
-                    bool wasUnspawned = InvokeUnSpawnHandler(identity.assetId, identity.gameObject);
-                    if (!wasUnspawned)
+                    if (identity != null && identity.gameObject != null)
                     {
-                        if (identity.sceneId == 0)
+                        bool wasUnspawned = InvokeUnSpawnHandler(identity.assetId, identity.gameObject);
+                        if (!wasUnspawned)
                         {
-                            Object.Destroy(identity.gameObject);
-                        }
-                        else
-                        {
-                            identity.Reset();
-                            identity.gameObject.SetActive(false);
+                            if (identity.sceneId == 0)
+                            {
+                                Object.Destroy(identity.gameObject);
+                            }
+                            else
+                            {
+                                identity.Reset();
+                                identity.gameObject.SetActive(false);
+                            }
                         }
                     }
                 }
+                NetworkIdentity.spawned.Clear();
             }
-            NetworkIdentity.spawned.Clear();
+            catch (InvalidOperationException e)
+            {
+                logger.LogException(e);
+                logger.LogError("Could not DestroyAllClientObjects because spawned list was modified during loop, make sure you are not modifying NetworkIdentity.spawned by calling NetworkServer.Destroy or NetworkServer.Spawn in OnDestroy or OnDisable.");
+            }
         }
 
         static void ApplySpawnPayload(NetworkIdentity identity, SpawnMessage msg)

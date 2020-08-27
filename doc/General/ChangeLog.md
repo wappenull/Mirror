@@ -4,7 +4,14 @@
 
 Mirror uses semantic versioning, and the versions shown here are those that were published to the Asset Store, and occasionally major version bumps happen mid-month between store submissions and are therefore not individually shown here.
 
-## Version 13.x.x -- In Progress
+## Version 14.x.x -- In Progress
+- Added: [NetworkLogSettings](../Components/NetworkLogSettings.md) component and Log Settings Window
+- Added: SyncLists now support AddRange, InsertRange, and RemoveAll
+- Fixed: NetworkRoomManager.minPlayers is now protected so it's available for derived classes.
+- Fixed: RegisterClientMessages was being incorrectly invoked for every scene change.
+- Changed: Network Proximity Checker now uses direct distance check against player objects instead of Physics.SphereCastNonAlloc for better performance.
+
+## Version 13.0.1 -- 2020-May-06
 - Added: [Multiple Concurrent Additive Scenes Example](../Examples/MultipleAdditiveScenes/index.md)
 - Added: [NetworkMatchChecker](../Components/NetworkMatchChecker.md) component. Use this component to create many concurrent isolated matches within a single game server.
 - Added: [SyncLists](../Guides/Sync/SyncLists.md) now have Find and FindAll functions.
@@ -72,7 +79,6 @@ Mirror uses semantic versioning, and the versions shown here are those that were
 - Added: NetworkTransform now has 3 new floats for Sensitivity to quiet down message traffic from micro changes.
 - Added: Network Observer added to [Script Templates](ScriptTemplates.md) -- See the new Mirror section in the Assets > Create menu.
 - Added: [Network Discovery](../Components/NetworkDiscovery.md) has been reimplemented including an example and script template -- thanks to all those who contributed!
-- Added: [Network Discovery](../Guides/NetworkDiscovery.md) Guide added to documentation.
 - Added: [Network Scene Checker Component](../Components/NetworkSceneChecker.md).
 - Added: Mirror Icon for all components.
 - Added: Inspector Headers to NetworkBehaviour, NetworkTransform, and NetworkAnimator.
@@ -146,7 +152,7 @@ Mirror uses semantic versioning, and the versions shown here are those that were
 - Removed: Network Identity: Local Player Authority has been removed as no longer necessary.
 
 ## Version 4.0.7 - 2019-Oct-03
-- Added: [Authentication](../Guides/Authentication.md) support to authenticate clients in the Connect phase.
+- Added: [Authenticators](Components/Authenticators/index.md) support to authenticate clients in the Connect phase.
 - Added: Profiler events. These events can be subscribed to by the [Network Profiler](../Guides/Profiler.md) to provide visual information.
 - Added: Transports now include channel in profiler events.
 - Added: Transport abstract class now supports sending a message to a list of connection id's.
@@ -290,7 +296,7 @@ Mirror uses semantic versioning, and the versions shown here are those that were
 - Changed: Documentation for [Transports](../Transports/index.md).
 - Changed: Weaver is now full source...FINALLY!
 - Changed: ClientScene.AddPlayer 2nd parameter is now `byte[] extraData` instead of `MessageBase extraMessage`.
-    -   Please refer to the code sample [here](../Guides/Authentication.md) to see how to update your code.
+    -   Please refer to the code sample [here](../Guides/GameObjects/SpawnPlayerCustom.md) to see how to update your code.
 - Changed: NetworkManager -- Headless Auto-Start moved to `Start()` from `Awake()`.
 - Changed: Removed Message ID's for all messages - See [Network Messages](../Guides/Communications/NetworkMessages.md) for details.
     -   Message IDs are now generated automatically based on the message name.  
