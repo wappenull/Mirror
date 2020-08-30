@@ -435,7 +435,9 @@ namespace Mirror
             hasSpawned = false;
 
 #if UNITY_EDITOR
+            m_RunningOnValidate = true;
             SetupIDs();
+            m_RunningOnValidate = false;
 #endif
         }
 
@@ -578,7 +580,6 @@ namespace Mirror
                 return;
 
             // no valid sceneId yet, or duplicate?
-            ulong previousId = m_SceneId;
             bool duplicate = sceneIds.TryGetValue(m_SceneId, out NetworkIdentity existing) && existing != null && existing != this;
             if (m_SceneId == 0 || duplicate)
             {
@@ -601,7 +602,7 @@ namespace Mirror
                 // upgrading would be very difficult.
                 // -> Undo.RecordObject is the new EditorUtility.SetDirty!
                 // -> we need to call it before changing.
-                //Undo.RecordObject(this, "Generated SceneId");
+                Undo.RecordObject(this, "Generated SceneId");
 
                 // generate random sceneId part (0x00000000FFFFFFFF)
                 uint nextId = GetRandomUInt();
@@ -611,11 +612,6 @@ namespace Mirror
                 duplicate = sceneIds.TryGetValue(nextId, out existing) && existing != null && existing != this;
                 if (!duplicate)
                 {
-                    if( previousId != nextId )
-                    {
-                        Undo.RecordObject(this, "Generated SceneId");
-                    }
-
                     m_SceneId = nextId;
                     //logger.Log(name + " in scene=" + gameObject.scene.name + " sceneId assigned to: " + m_SceneId.ToString("X"));
                 }
@@ -672,130 +668,68 @@ namespace Mirror
 
         void SetupIDs()
         {
-            // New simple rules:
-            // - NetworkIdentity MUST be on prefab root in order to have m_AssetId, else zero
-            // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
-
-            var prop = Wappen.Editor.PrefabHelper.GetPrefabProperties( gameObject );
-                
-            // Determine m_SceneId
-            if( prop.isSceneObject )
+#if false // MIRROR original
+            if (ThisIsAPrefab())
             {
-                // This NetworkIdentity is placed in scene
-                // Could be nested inside another prefab or not.
-                AssignStableSceneID();
+                // force 0 for prefabs
+                m_SceneId = 0;
+                AssignAssetID(gameObject);
             }
-            else
+            // are we currently in prefab editing mode? aka prefab stage
+            // => check prefabstage BEFORE SceneObjectWithPrefabParent
+            //    (fixes https://github.com/vis2k/Mirror/issues/976)
+            // => if we don't check GetCurrentPrefabStage and only check
+            //    GetPrefabStage(gameObject), then the 'else' case where we
+            //    assign a sceneId and clear the assetId would still be
+            //    triggered for prefabs. in other words: if we are in prefab
+            //    stage, do not bother with anything else ever!
+            else if (PrefabStageUtility.GetCurrentPrefabStage() != null)
             {
-                // Non scene object, 
-                m_SceneId = 0; // force 0 for prefabs
-            }
-
-            // Also when instantiating real prefab into scene on runtime (e.g., map generator)
-            // Old Mirror logic will use outermost prefab as asset ID which is limitation
-            // We will make exception that NetworkIdentity must be on root level of prefab in order to have asset ID
-            if( prop.isRootOfAnyPrefab )
-            {
-                // Yes, this NetworkIdentity is on prefab asset itself
-                AssignAssetID( prop.prefabAssetPath );
-            }
-            else if( prop.isPartOfAnyPrefab )
-            {
-                // Wappen: Allow NetworkIdentity in children as long as it does not nested in other NetworkIdentity
-                //Debug.LogWarning( $"Mirror Check: Network Identity on {this.name} is not on root (should not be under part of prefab)", this );
-                m_AssetId = "";
-            }
-            else
-            {
-                // No, this NetworkIdentity is not on valid unity prefab asset gameObject
-                // Dont bother assign asset ID
-                m_AssetId = "";
-            }
-        }
-#endif
-        /* Wappen Extension /////////////////////////////////*/
-
-        private void AssignStableSceneID( )
-        {
-            bool duplicate = _CheckSceneIdDup( m_SceneId );
-            if( m_SceneId == 0 || duplicate )
-            {
-                ulong nextId = GetSceneIdByPath( gameObject );
-                if( nextId != m_SceneId )
+                // when modifying a prefab in prefab stage, Unity calls
+                // OnValidate for that prefab and for all scene objects based on
+                // that prefab.
+                //
+                // is this GameObject the prefab that we modify, and not just a
+                // scene object based on the prefab?
+                //   * GetCurrentPrefabStage = 'are we editing ANY prefab?'
+                //   * GetPrefabStage(go) = 'are we editing THIS prefab?'
+                if (PrefabStageUtility.GetPrefabStage(gameObject) != null)
                 {
-                    while( _CheckSceneIdDup( nextId ) ) ++nextId; // Collision avoidance
-#if UNITY_EDITOR
-                    if( !Application.isPlaying )
-                    {
-                        UnityEditor.Undo.RecordObject( this, "AssignStableSceneID" );
-                    }
-#endif
-                    m_SceneId = nextId;
+                    // force 0 for prefabs
+                    sceneId = 0;
+                    //logger.Log(name + " @ scene: " + gameObject.scene.name + " sceneid reset to 0 because CurrentPrefabStage=" + PrefabStageUtility.GetCurrentPrefabStage() + " PrefabStage=" + PrefabStageUtility.GetPrefabStage(gameObject));
+                    // NOTE: might make sense to use GetPrefabStage for asset
+                    //       path, but let's not touch it while it works.
+                    string path = PrefabStageUtility.GetCurrentPrefabStage().prefabAssetPath;
+                    AssignAssetID(path);
                 }
             }
-            _CommitSceneId( m_SceneId );
-        }
-
-        private bool _CheckSceneIdDup( ulong id )
-        {
-            return sceneIds.TryGetValue( id, out NetworkIdentity existing ) && existing != null && existing != this;
-        }
-
-        private void _CommitSceneId( ulong id )
-        {
-            sceneIds[id] = this;
-        }
-
-        /// <summary>
-        /// Scene ID implementation by Wappen.
-        /// </summary>
-        public static uint GetSceneIdByPath( GameObject g )
-        {
-            return (uint)StringHash.GetStableHashCode( GetScenePathForHash( g ) );
-        }
-
-        /// <summary>
-        /// Scene ID implementation by Wappen.
-        /// Use scene path, it could vulnerable to dupe node name.
-        /// But ok for now
-        /// </summary>
-        public static string GetScenePathForHash( GameObject g )
-        {
-            // Format
-            // SceneName:/parent/parent/NodeName
-            string scenePath = $"{g.scene.name}:/";
-            string nodePath = g.name;
-            Transform node = g.transform.parent;
-            while( node != null )
+            else if (ThisIsASceneObjectWithPrefabParent(out GameObject prefab))
             {
-                nodePath = $"{node.name}/{nodePath}"; // Prepend
-                node = node.parent;
+                AssignSceneID();
+                AssignAssetID(prefab);
+            }
+            else
+            {
+                AssignSceneID();
+                m_AssetId = "";
             }
 
-            return scenePath + nodePath;
+#else // Wappen new rule
+
+            if( m_RunningOnValidate )
+            {
+                // Use delayCall technique to avoid SendMessage warning on OnValidate
+                UnityEditor.EditorApplication.delayCall += _SetupIdsWappenVersion;
+            }
+            else
+            {
+                _SetupIdsWappenVersion( );
+            }
+            
+#endif // end Mirror/Wappen rule
         }
-
-        private uint overrideSceneId;
-        private Guid overrideAssetId;
-
-        /// <summary>
-        /// Set override. To clear it set 0.
-        /// </summary>
-        public void SetOverrideSceneId( uint id )
-        {
-            overrideSceneId = id;
-        }
-
-        /// <summary>
-        /// Set override. To clear it set Guid.Empty.
-        /// </summary>
-        public void SetOverrideAssetId( Guid g )
-        {
-            overrideAssetId = g;
-        }
-
-
-        /* End Wappen extension ////////////////////////////*/
+#endif
 
         /// <summary>
         /// Unity will Destroy all networked objects on Scene Change, so we have to handle that here silently.
@@ -1778,5 +1712,137 @@ namespace Mirror
                 comp.ResetSyncObjects();
             }
         }
+
+        /* Wappen Extension /////////////////////////////////*/
+
+        private bool m_RunningOnValidate;
+
+        private void _SetupIdsWappenVersion( )
+        {
+            // New simple rules:
+            // - NetworkIdentity MUST be on prefab root in order to have m_AssetId, else zero
+            // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
+
+            // DungeonLooter requirements
+            // - NetworkIdentity prefab nested inside another prefab must still save same assetId
+
+            var prop = Wappen.Editor.PrefabHelper.GetPrefabProperties( gameObject );
+                
+            // Determine m_SceneId
+            if( prop.isSceneObject )
+            {
+                // This NetworkIdentity is placed in scene
+                // Could be nested inside another prefab or not.
+                AssignStableSceneID();
+            }
+            else
+            {
+                // Non scene object, 
+                m_SceneId = 0; // force 0 for prefabs
+            }
+
+            // Also when instantiating real prefab into scene on runtime (e.g., map generator)
+            // Old Mirror logic will use outermost prefab as asset ID which is limitation
+            // We will make exception that NetworkIdentity must be on root level of prefab 
+            // (does not have to be outermost, could be any root of nested prefab instance) in order to have asset ID
+            if( prop.isRootOfAnyPrefab )
+            {
+                // Yes, this NetworkIdentity is on prefab asset itself
+                AssignAssetID( prop.prefabAssetPath );
+            }
+            else if( prop.isPartOfAnyPrefab )
+            {
+                // Wappen: Allow NetworkIdentity in as nested prefab as long as it does not nested under other NetworkIdentity
+                //Debug.LogWarning( $"Mirror Check: Network Identity on {this.name} is not on root (should not be under part of prefab)", this );
+                m_AssetId = "";
+            }
+            else
+            {
+                // No, this NetworkIdentity is not on valid unity prefab asset gameObject
+                // Dont bother assign asset ID
+                m_AssetId = "";
+            }
+        }
+
+        private void AssignStableSceneID( )
+        {
+            bool duplicate = _CheckSceneIdDup( m_SceneId );
+            if( m_SceneId == 0 || duplicate )
+            {
+                ulong nextId = GetSceneIdByPath( gameObject );
+                if( nextId != m_SceneId )
+                {
+                    while( _CheckSceneIdDup( nextId ) ) ++nextId; // Collision avoidance
+#if UNITY_EDITOR
+                    if( !Application.isPlaying )
+                    {
+                        UnityEditor.Undo.RecordObject( this, "AssignStableSceneID" );
+                    }
+#endif
+                    m_SceneId = nextId;
+                }
+            }
+            _CommitSceneId( m_SceneId );
+        }
+
+        private bool _CheckSceneIdDup( ulong id )
+        {
+            return sceneIds.TryGetValue( id, out NetworkIdentity existing ) && existing != null && existing != this;
+        }
+
+        private void _CommitSceneId( ulong id )
+        {
+            sceneIds[id] = this;
+        }
+
+        /// <summary>
+        /// Scene ID implementation by Wappen.
+        /// </summary>
+        public static uint GetSceneIdByPath( GameObject g )
+        {
+            return (uint)StringHash.GetStableHashCode( GetScenePathForHash( g ) );
+        }
+
+        /// <summary>
+        /// Scene ID implementation by Wappen.
+        /// Use scene path, it could vulnerable to dupe node name.
+        /// But ok for now
+        /// </summary>
+        public static string GetScenePathForHash( GameObject g )
+        {
+            // Format
+            // SceneName:/parent/parent/NodeName
+            string scenePath = $"{g.scene.name}:/";
+            string nodePath = g.name;
+            Transform node = g.transform.parent;
+            while( node != null )
+            {
+                nodePath = $"{node.name}/{nodePath}"; // Prepend
+                node = node.parent;
+            }
+
+            return scenePath + nodePath;
+        }
+
+        private uint overrideSceneId;
+        private Guid overrideAssetId;
+
+        /// <summary>
+        /// Set override. To clear it set 0.
+        /// </summary>
+        public void SetOverrideSceneId( uint id )
+        {
+            overrideSceneId = id;
+        }
+
+        /// <summary>
+        /// Set override. To clear it set Guid.Empty.
+        /// </summary>
+        public void SetOverrideAssetId( Guid g )
+        {
+            overrideAssetId = g;
+        }
+
+        /* End Wappen extension ////////////////////////////*/
     }
 }
