@@ -110,11 +110,14 @@ namespace Telepathy
             }
             catch (SocketException exception)
             {
+                // Wappen: Only mark error in editor
+#if UNITY_EDITOR
                 // this happens if (for example) the ip address is correct
                 // but there is no server running on that ip/port
                 Logger.LogError($"Client Recv: failed to connect to ip={ip} port={port} reason={exception}");
+#endif
 
-                // Prepare extra reason, this is sending from worker thread to main thread
+                // Wappen: Prepare extra reason, this is sending from worker thread to main thread
                 byte[] extraDisconnectMessage = null;
                 using( System.IO.MemoryStream ms = new System.IO.MemoryStream( ) )
                 {

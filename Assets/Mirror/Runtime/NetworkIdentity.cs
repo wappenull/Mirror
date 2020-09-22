@@ -268,8 +268,12 @@ namespace Mirror
             }
         }
 
-        [SerializeField, HideInInspector] string m_AssetId;
+        [SerializeField] string m_AssetId;
 
+        /// <summary>
+        /// Wappen extension: Access internal assetid directly without triggering setup function.
+        /// </summary>
+        public string AssetIdDirect => m_AssetId;
 
         /// <summary>
         /// Unique identifier used to find the source assets when server spawns the on clients.
@@ -1030,6 +1034,11 @@ namespace Mirror
             writer.WriteInt32(0);
             int contentPosition = writer.Position;
 
+            // Wappen: added component type safety hash
+            // This will be checked on OnDeserializeSafely
+            int compHash = comp.GetType().Name.GetStableHashCode( );
+            writer.WriteInt32( compHash );
+
             // write payload
             bool result = false;
             try
@@ -1180,6 +1189,16 @@ namespace Mirror
             int contentSize = reader.ReadInt32();
             int chunkStart = reader.Position;
             int chunkEnd = reader.Position + contentSize;
+
+            // Wappen: added component type safety hash
+            int typeHash = reader.ReadInt32( );
+            string compType = comp.GetType().Name;
+            int myCompHash = compType.GetStableHashCode( );
+            if( myCompHash != typeHash )
+            {
+                logger.LogError( $"OnDeserializeSafely found invalid component type matching in {comp.name} it is somehow reading into wrong type {compType}.\n" 
+                    + "Check if there is inconsistency in component ordering between server/client.", comp );
+            }
 
             // call OnDeserialize and wrap it in a try-catch block so there's no
             // way to mess up another component's deserialization
@@ -1719,13 +1738,23 @@ namespace Mirror
 
         private void _SetupIdsWappenVersion( )
         {
+            // Could be null due to delayCall
+            if( this == null || gameObject == null )
+                return;
+
+#if UNITY_EDITOR
+            if( Application.IsPlaying( this ) && string.IsNullOrEmpty( m_AssetId ) && m_SceneId == 0 )
+            {
+                Debug.LogWarning( $"NWID prefab fault! game object path {GetGameObjectPath( gameObject )} got non-setup nwid state in runtime", this );
+            }
+#endif
+
             // New simple rules:
             // - NetworkIdentity MUST be on prefab root in order to have m_AssetId, else zero
             // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
 
             // DungeonLooter requirements
             // - NetworkIdentity prefab nested inside another prefab must still save same assetId
-
             var prop = Wappen.Editor.PrefabHelper.GetPrefabProperties( gameObject );
                 
             // Determine m_SceneId
@@ -1745,6 +1774,7 @@ namespace Mirror
             // Old Mirror logic will use outermost prefab as asset ID which is limitation
             // We will make exception that NetworkIdentity must be on root level of prefab 
             // (does not have to be outermost, could be any root of nested prefab instance) in order to have asset ID
+            string previousAssetId = m_AssetId;
             if( prop.isRootOfAnyPrefab )
             {
                 // Yes, this NetworkIdentity is on prefab asset itself
@@ -1762,10 +1792,21 @@ namespace Mirror
                 // Dont bother assign asset ID
                 m_AssetId = "";
             }
+
+#if UNITY_EDITOR
+            // Make sure it is saved to prefab
+            if( !Application.isPlaying && previousAssetId != m_AssetId )
+                Undo.RecordObject( this, "m_AssetId assignment" );
+#endif
         }
 
         private void AssignStableSceneID( )
         {
+            // Refuse to change sceneId in runtime
+            // This must comply with AssignSceneID()
+            if (Application.isPlaying)
+                return;
+
             bool duplicate = _CheckSceneIdDup( m_SceneId );
             if( m_SceneId == 0 || duplicate )
             {
@@ -1841,6 +1882,25 @@ namespace Mirror
         public void SetOverrideAssetId( Guid g )
         {
             overrideAssetId = g;
+        }
+
+        static string GetGameObjectPath( GameObject gameObject )
+        {
+            List<string> path = new List<string>( );
+            Transform iter = gameObject.transform;
+            while( iter != null )
+            {
+                if( path.Count > 20 )
+                    break; // Safety measure
+
+                path.Insert( 0, iter.name );
+                iter = iter.parent;
+            }
+
+            if( gameObject.scene != null )
+                path.Insert( 0, $"{gameObject.scene.name}:" );
+
+            return  string.Join( "/", path.ToArray( ) );
         }
 
         /* End Wappen extension ////////////////////////////*/
