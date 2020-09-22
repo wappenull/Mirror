@@ -301,10 +301,12 @@ namespace Mirror
         {
             get
             {
+#if false // Wappen: Completely disable on-demand generation, this make data path very confuse, see reason below
 #if UNITY_EDITOR
                 // This is important because sometimes OnValidate does not run (like when adding view to prefab with no child links)
                 if (string.IsNullOrEmpty(m_AssetId))
                     SetupIDs();
+#endif
 #endif
                 // Wappen Extension, return override assetId if we have one
                 if( overrideAssetId != Guid.Empty )
@@ -434,15 +436,16 @@ namespace Mirror
 
         void OnValidate()
         {
+            m_UnderOnValidate = true;
+
             // OnValidate is not called when using Instantiate, so we can use
             // it to make sure that hasSpawned is false
             hasSpawned = false;
 
 #if UNITY_EDITOR
-            m_RunningOnValidate = true;
             SetupIDs();
-            m_RunningOnValidate = false;
 #endif
+            m_UnderOnValidate = false;
         }
 
 #if UNITY_EDITOR
@@ -721,15 +724,7 @@ namespace Mirror
 
 #else // Wappen new rule
 
-            if( m_RunningOnValidate )
-            {
-                // Use delayCall technique to avoid SendMessage warning on OnValidate
-                UnityEditor.EditorApplication.delayCall += _SetupIdsWappenVersion;
-            }
-            else
-            {
-                _SetupIdsWappenVersion( );
-            }
+            _SetupIdsWappenVersion( null );
             
 #endif // end Mirror/Wappen rule
         }
@@ -1734,106 +1729,183 @@ namespace Mirror
 
         /* Wappen Extension /////////////////////////////////*/
 
-        private bool m_RunningOnValidate;
+        bool m_UnderOnValidate;
 
-        private void _SetupIdsWappenVersion( )
+#if UNITY_EDITOR
+        /// <summary>
+        /// Assume called from source prefab.
+        /// object obtained from PrefabUtility.LoadPrefabContents.
+        /// </summary>
+        [ContextMenu("EditorRecomputeIds")]
+        public void EditorRecomputeIds( )
+        {
+            ulong previousSceneId = m_SceneId;
+            _SetupIdsWappenVersion( "source" );
+
+            if( m_SceneId != previousSceneId )
+            {
+                Debug.LogError( $"BugCheck: {name} m_SceneId should not change during EditorRecomputeIds" );
+                m_SceneId = previousSceneId;
+            }
+        }
+
+        private void _SetupIdsWappenVersion( string sourceType )
         {
             // Could be null due to delayCall
             if( this == null || gameObject == null )
                 return;
 
-#if UNITY_EDITOR
-            if( Application.IsPlaying( this ) && string.IsNullOrEmpty( m_AssetId ) && m_SceneId == 0 )
-            {
-                Debug.LogWarning( $"NWID prefab fault! game object path {GetGameObjectPath( gameObject )} got non-setup nwid state in runtime", this );
-            }
-#endif
+            // note on modifying and saving:
+            // https://forum.unity.com/threads/how-do-i-edit-prefabs-from-scripts.685711/
+            // Game object that used no front line are actually "imported" version of prefab.
+            // Modifying these will get reflect in source asset prefab.
 
             // New simple rules:
             // - NetworkIdentity MUST be on prefab root in order to have m_AssetId, else zero
+            //   - To compute its own asset id, it should have no parent and no scene (fully asset object)
+            //   - Else, it could be nested, in this case we will try to "reset" prefab instance override so that it uses its ancester's asset id.
             // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
-
-            // DungeonLooter requirements
-            // - NetworkIdentity prefab nested inside another prefab must still save same assetId
-            var prop = Wappen.Editor.PrefabHelper.GetPrefabProperties( gameObject );
-                
-            // Determine m_SceneId
-            if( prop.isSceneObject )
-            {
-                // This NetworkIdentity is placed in scene
-                // Could be nested inside another prefab or not.
-                AssignStableSceneID();
-            }
-            else
-            {
-                // Non scene object, 
-                m_SceneId = 0; // force 0 for prefabs
-            }
-
-            // Also when instantiating real prefab into scene on runtime (e.g., map generator)
-            // Old Mirror logic will use outermost prefab as asset ID which is limitation
-            // We will make exception that NetworkIdentity must be on root level of prefab 
-            // (does not have to be outermost, could be any root of nested prefab instance) in order to have asset ID
             string previousAssetId = m_AssetId;
-            if( prop.isRootOfAnyPrefab )
+            bool underValidScene = gameObject.scene != null && gameObject.scene.buildIndex >= 0 && gameObject.scene.IsValid( );
+
+            // Prefab asset appears to be under dummy scene with handle=0 and IsValid()=false
+            if( !underValidScene && transform.parent == null && ThisIsAPrefab( ) )
             {
-                // Yes, this NetworkIdentity is on prefab asset itself
-                AssignAssetID( prop.prefabAssetPath );
+                // This is genuine asset object
+                _EditorWriteSceneId( 0 );
+
+                string path = AssetDatabase.GetAssetPath( gameObject );
+                // In some case when exiting prefab stage, GetAssetPath will return blank path while saving, do not apply that data
+                if( !string.IsNullOrEmpty( path ) )
+                {
+                    string newAssetId = AssetDatabase.AssetPathToGUID( path );
+                    if( _AssignAssetIdWithMarkDirty( previousAssetId, newAssetId ) )
+                    {
+                        Debug.Log( $"NWID {name} set to {m_AssetId} (Pure prefab case)", this );
+
+                        if( m_UnderOnValidate && sourceType != "source" )
+                        {
+                            // Extra step, this probably running on a library version of gameobject.
+                            // to actually save it source asset, must use special API
+                            EditorUtility.SetDirty( this );
+
+                            GameObject capturedGo = this.gameObject;
+                            EditorApplication.delayCall += () =>
+                            {
+                                Debug.Log( "Delay save " + GetGameObjectPath( capturedGo ) );
+                                PrefabUtility.SavePrefabAsset( capturedGo );
+                            };
+                        }
+                    }
+                }
             }
-            else if( prop.isPartOfAnyPrefab )
+            else if( PrefabStageUtility.GetCurrentPrefabStage( ) != null )
             {
-                // Wappen: Allow NetworkIdentity in as nested prefab as long as it does not nested under other NetworkIdentity
-                //Debug.LogWarning( $"Mirror Check: Network Identity on {this.name} is not on root (should not be under part of prefab)", this );
-                m_AssetId = "";
+                if( PrefabStageUtility.GetPrefabStage( gameObject ) != null )
+                {
+                    _EditorWriteSceneId( 0 );
+                
+                    if( gameObject.transform.parent == null ) // Must also be root of prefab stage to have assetId
+                    {
+                        string newId = AssetDatabase.AssetPathToGUID( PrefabStageUtility.GetCurrentPrefabStage().prefabAssetPath );
+                        if( _AssignAssetIdWithMarkDirty( previousAssetId, newId ) )
+                            Debug.Log( $"NWID {name} set to {m_AssetId} (Prefab stage case)", this );
+                    }
+                }
             }
             else
             {
-                // No, this NetworkIdentity is not on valid unity prefab asset gameObject
-                // Dont bother assign asset ID
-                m_AssetId = "";
+                // It is under a scene!
+                if( underValidScene )
+                    AssignStableSceneID( );
+                _ResetPrefabInstanceAssetIdOverride( );
+            }
+        }
+
+        bool _AssignAssetIdWithMarkDirty( string previousAssetId, string newId )
+        {
+            // Make sure it is saved to prefab
+            if( !string.IsNullOrEmpty( previousAssetId ) && string.IsNullOrEmpty( newId ) )
+            {
+                // Do not allow regress
+                Debug.Log( "Regress prevented in " + name );
+                return false;
+            }
+            else if( !Application.isPlaying && previousAssetId != newId )
+            {
+                // Important, must record first, then modify
+                Undo.RecordObject( this, "m_AssetId assignment" );
+                m_AssetId = newId;
+                return true;
             }
 
-#if UNITY_EDITOR
-            // Make sure it is saved to prefab
-            if( !Application.isPlaying && previousAssetId != m_AssetId )
-                Undo.RecordObject( this, "m_AssetId assignment" );
-#endif
+            return false;
+        }
+
+        void _ResetPrefabInstanceAssetIdOverride( )
+        {
+            // so.FindProperty somehow uses SendMessage and will trigger warning. 
+            // So do not run this while under OnValidate
+            if( Application.isPlaying || m_UnderOnValidate )
+                return;
+
+            using( SerializedObject so = new SerializedObject( this ) )
+            {
+                SerializedProperty sp = so.FindProperty( nameof(m_AssetId) );
+                if( sp.isInstantiatedPrefab && sp.prefabOverride )
+                {
+                    PrefabUtility.RevertPropertyOverride( sp, InteractionMode.AutomatedAction );
+                    Debug.Log( $"_ResetPrefabInstanceAssetIdOverride on {GetGameObjectPath(gameObject)} ran", this );
+                }
+            }
         }
 
         private void AssignStableSceneID( )
         {
             // Refuse to change sceneId in runtime
             // This must comply with AssignSceneID()
-            if (Application.isPlaying)
+            if( Application.isPlaying )
                 return;
 
-            bool duplicate = _CheckSceneIdDup( m_SceneId );
-            if( m_SceneId == 0 || duplicate )
+            // Note: For now we will not check for sceneId dupe
+            if( m_SceneId == 0 )
             {
                 ulong nextId = GetSceneIdByPath( gameObject );
-                if( nextId != m_SceneId )
-                {
-                    while( _CheckSceneIdDup( nextId ) ) ++nextId; // Collision avoidance
-#if UNITY_EDITOR
-                    if( !Application.isPlaying )
-                    {
-                        UnityEditor.Undo.RecordObject( this, "AssignStableSceneID" );
-                    }
-#endif
-                    m_SceneId = nextId;
-                }
+                _EditorWriteSceneId( nextId );
             }
-            _CommitSceneId( m_SceneId );
         }
 
-        private bool _CheckSceneIdDup( ulong id )
+        private void _EditorWriteSceneId( ulong id )
         {
-            return sceneIds.TryGetValue( id, out NetworkIdentity existing ) && existing != null && existing != this;
+            if( id != m_SceneId )
+            {
+                if( !Application.isPlaying )
+                    Undo.RecordObject( this, "AssignStableSceneID" );
+
+                m_SceneId = id;
+            }
         }
 
-        private void _CommitSceneId( ulong id )
+
+#endif
+
+        static string GetGameObjectPath( GameObject gameObject )
         {
-            sceneIds[id] = this;
+            List<string> path = new List<string>( );
+            Transform iter = gameObject.transform;
+            while( iter != null )
+            {
+                if( path.Count > 20 )
+                    break; // Safety measure
+
+                path.Insert( 0, iter.name );
+                iter = iter.parent;
+            }
+
+            if( gameObject.scene != null )
+                path.Insert( 0, $"{gameObject.scene.name}:" );
+
+            return  string.Join( "/", path.ToArray( ) );
         }
 
         /// <summary>
@@ -1841,7 +1913,7 @@ namespace Mirror
         /// </summary>
         public static uint GetSceneIdByPath( GameObject g )
         {
-            return (uint)StringHash.GetStableHashCode( GetScenePathForHash( g ) );
+            return (uint)StringHash.GetStableHashCode( GetScenePathForHashing( g ) );
         }
 
         /// <summary>
@@ -1849,20 +1921,11 @@ namespace Mirror
         /// Use scene path, it could vulnerable to dupe node name.
         /// But ok for now
         /// </summary>
-        public static string GetScenePathForHash( GameObject g )
+        public static string GetScenePathForHashing( GameObject g )
         {
             // Format
             // SceneName:/parent/parent/NodeName
-            string scenePath = $"{g.scene.name}:/";
-            string nodePath = g.name;
-            Transform node = g.transform.parent;
-            while( node != null )
-            {
-                nodePath = $"{node.name}/{nodePath}"; // Prepend
-                node = node.parent;
-            }
-
-            return scenePath + nodePath;
+            return GetGameObjectPath( g );
         }
 
         private uint overrideSceneId;
@@ -1882,25 +1945,6 @@ namespace Mirror
         public void SetOverrideAssetId( Guid g )
         {
             overrideAssetId = g;
-        }
-
-        static string GetGameObjectPath( GameObject gameObject )
-        {
-            List<string> path = new List<string>( );
-            Transform iter = gameObject.transform;
-            while( iter != null )
-            {
-                if( path.Count > 20 )
-                    break; // Safety measure
-
-                path.Insert( 0, iter.name );
-                iter = iter.parent;
-            }
-
-            if( gameObject.scene != null )
-                path.Insert( 0, $"{gameObject.scene.name}:" );
-
-            return  string.Join( "/", path.ToArray( ) );
         }
 
         /* End Wappen extension ////////////////////////////*/
