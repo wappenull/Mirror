@@ -114,21 +114,13 @@ namespace Mirror
                         // error message will have to tug in here, before firing disconnect message
                         if( message.data != null )
                         {
-                            using( System.IO.MemoryStream ms = new System.IO.MemoryStream( message.data ) )
-                            {
-                                using( System.IO.BinaryReader br = new System.IO.BinaryReader( ms ) )
-                                {
-                                    // Read things exactly what we modified in Client.cs
-                                    LastErrorCode = (SocketError)br.ReadInt32( );
-                                    LastErrorMessage = br.ReadString( );
-                                }
-                            }
+                            Common.WappenDeserializeDisconnectMessage( message.data, out ClientLastErrorCode, out ClientLastErrorMessage );
                         }
                         else
                         {
                             // Something irrelevent, I just pick some SocketError
-                            LastErrorCode = SocketError.NotConnected;
-                            LastErrorMessage = "Unknown disconnect.";
+                            ClientLastErrorCode = SocketError.NotConnected;
+                            ClientLastErrorMessage = "Unknown disconnect.";
                         }
                         OnClientDisconnected.Invoke();
                         break;
@@ -223,6 +215,9 @@ namespace Mirror
             {
                 switch (message.eventType)
                 {
+                    case Telepathy.EventType.PreConnect:
+                        OnServerPreConnect.Invoke(message.connectionId);
+                        break;
                     case Telepathy.EventType.Connected:
                         OnServerConnected.Invoke(message.connectionId);
                         break;
@@ -235,6 +230,18 @@ namespace Mirror
                         OnServerDataReceived.Invoke(message.connectionId, new ArraySegment<byte>(message.data), Channels.DefaultReliable);
                         break;
                     case Telepathy.EventType.Disconnected:
+                        // Wappen: without modifying OnServerDisconnected signature
+                        // I will tug in error to separate field
+                        if( message.data != null )
+                        {
+                            SocketError code;
+                            string reason;
+                            Common.WappenDeserializeDisconnectMessage( message.data, out code, out reason );
+
+                            // For now we treat SocketError.VersionNotSupported as hacking
+                            bool isAttacker = code == SocketError.VersionNotSupported;
+                            ServerWriteDisconnectReason( message.connectionId, code, reason, isAttacker );
+                        }
                         OnServerDisconnected.Invoke(message.connectionId);
                         break;
                     default:
@@ -314,6 +321,13 @@ namespace Mirror
                 return "Telepathy Client ip: " + client.client.Client.RemoteEndPoint;
             }
             return "Telepathy (inactive/disconnected)";
+        }
+
+        /* Wappen extension /////////////////////////////*/
+
+        internal override void ServerSetPreConnectStatus( int connectionId, int state )
+        {
+            server.ServerSetPreConnectStatus( connectionId, state );
         }
     }
 }

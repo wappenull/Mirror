@@ -727,8 +727,10 @@ namespace Mirror
 
         internal static void ApplySpawnPayload(NetworkIdentity identity, SpawnMessage msg)
         {
+            // Wappen modified: ApplySpawnPayload with assetId will apply as override indead of direct identity.assetId
+            // Which will trigger error in ID is existing case.
             if (msg.assetId != Guid.Empty)
-                identity.assetId = msg.assetId;
+                identity.SetOverrideAssetId( msg.assetId );
 
             if (!identity.gameObject.activeSelf)
             {

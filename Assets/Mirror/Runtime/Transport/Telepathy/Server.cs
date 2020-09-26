@@ -38,6 +38,12 @@ namespace Telepathy
         // clients with <connectionId, ClientData>
         readonly ConcurrentDictionary<int, ClientToken> clients = new ConcurrentDictionary<int, ClientToken>();
 
+        // Wappen: address storage, <connectionId, address>
+        readonly ConcurrentDictionary<int,string> addressDictionary = new ConcurrentDictionary<int, string>( );
+
+        // Wappen: queued "PreConnect' connectionId, int (status, 1=passed, -1=killed)
+        readonly ConcurrentDictionary<int,int> clientPreConnectWaiting = new ConcurrentDictionary<int,int>( );
+
         // connectionId counter
         int counter;
 
@@ -100,6 +106,37 @@ namespace Telepathy
                     // add to dict immediately
                     ClientToken token = new ClientToken(client);
                     clients[connectionId] = token;
+
+                    // Wappen: resolve address now!
+                    addressDictionary[connectionId] = ((IPEndPoint)token.client.Client.RemoteEndPoint).Address.ToString();
+                    clientPreConnectWaiting[connectionId] = 0;
+                    
+                    // Notify above now!
+                    receiveQueue.Enqueue(new Message(connectionId, EventType.PreConnect, null));
+
+                    // Then wait for preconnect result, only 1 may wait at a time
+                    int verdict;
+                    while( true )
+                    {
+                        verdict = clientPreConnectWaiting[connectionId];
+                        if( verdict == 0 )
+                        {
+                            // No verdict yet
+                            Thread.Sleep( 10 );
+                            continue;
+                        }
+
+                        break;
+                    }
+
+                    // Check verdict.
+                    clientPreConnectWaiting.TryRemove( connectionId, out _ );
+                    if( verdict < 0 ) // Prekill, or FTL kill
+                    {
+                        token.client.Close();
+                        clients.TryRemove( connectionId, out _ );
+                        continue;
+                    }
 
                     // spawn a send thread for each client
                     Thread sendThread = new Thread(() =>
@@ -232,6 +269,8 @@ namespace Telepathy
 
             // clear clients list
             clients.Clear();
+            addressDictionary.Clear( );
+            clientPreConnectWaiting.Clear( );
 
             // reset the counter in case we start up again so
             // clients get connection ID's starting from 1
@@ -271,12 +310,17 @@ namespace Telepathy
         // client's ip is sometimes needed by the server, e.g. for bans
         public string GetClientAddress(int connectionId)
         {
+#if false // Mirror's original will have clients removed too fast to event get address for ban list
             // find the connection
             ClientToken token;
             if (clients.TryGetValue(connectionId, out token))
             {
                 return ((IPEndPoint)token.client.Client.RemoteEndPoint).Address.ToString();
             }
+#else
+            if( addressDictionary.TryGetValue( connectionId, out string addr ) )
+                return addr;
+#endif
             return "";
         }
 
@@ -293,6 +337,17 @@ namespace Telepathy
                 return true;
             }
             return false;
+        }
+
+        /* Wappen extension //////////////////////////////////////*/
+
+        /// <summary>
+        /// state = 1 to accept, -1 to kill.
+        /// </summary>
+        internal void ServerSetPreConnectStatus( int connectionId, int state )
+        {
+            if( clientPreConnectWaiting.ContainsKey( connectionId ) )
+                clientPreConnectWaiting[connectionId] = state;
         }
     }
 }

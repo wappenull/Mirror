@@ -78,6 +78,20 @@ namespace Mirror
         static readonly List<int> connectionIdsCache = new List<int>();
 
         /// <summary>
+        /// Wappen: extension to determine client before even allow it in system.
+        /// </summary>
+        public static event PreConnectCallback onPreConnect;
+        public delegate void PreConnectCallback( int connectionId, string address, PreConnectControl c );
+
+        public class PreConnectControl
+        {
+            internal int verdict = 0;
+            public void Accept( ) => verdict = 1;
+            public void Decline( ) => verdict = -1;
+        }
+
+
+        /// <summary>
         /// Reset the NetworkServer singleton.
         /// <para>Deprecated 02/23/2020</para>
         /// </summary>
@@ -153,6 +167,7 @@ namespace Mirror
             connections.Clear();
             Transport.activeTransport.OnServerDisconnected.AddListener(OnDisconnected);
             Transport.activeTransport.OnServerConnected.AddListener(OnConnected);
+            Transport.activeTransport.OnServerPreConnect.AddListener(OnPreConnect);
             Transport.activeTransport.OnServerDataReceived.AddListener(OnDataReceived);
             Transport.activeTransport.OnServerError.AddListener(OnError);
         }
@@ -516,6 +531,24 @@ namespace Mirror
                     // always call Remove in OnObjectDestroy everywhere.
                     logger.LogWarning("Found 'null' entry in spawned list for netId=" + kvp.Key + ". Please call NetworkServer.Destroy to destroy networked objects. Don't use GameObject.Destroy.");
                 }
+            }
+        }
+
+        static void OnPreConnect( int connectionId )
+        {
+            if( onPreConnect != null )
+            {
+                string address = Transport.activeTransport.ServerGetClientAddress( connectionId );
+                PreConnectControl c = new PreConnectControl( );
+                onPreConnect.Invoke( connectionId, address, c );
+                if( c.verdict == 0 )
+                    c.Accept( ); // Auto accept if no answer
+                Transport.activeTransport.ServerSetPreConnectStatus( connectionId, c.verdict );
+            }
+            else
+            {
+                // If no handler, AUTO accept for now
+                Transport.activeTransport.ServerSetPreConnectStatus( connectionId, 1 );
             }
         }
 

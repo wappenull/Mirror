@@ -2,6 +2,7 @@
 // note: not all transports need a port, so add it to yours if needed.
 using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -105,6 +106,11 @@ namespace Mirror
         /// Notify subscribers when a client connects to this server
         /// </summary>
         [HideInInspector] public UnityEventInt OnServerConnected = new UnityEventInt();
+
+        /// <summary>
+        /// Wappen: on before connect
+        /// </summary>
+        [HideInInspector] public UnityEventInt OnServerPreConnect = new UnityEventInt();
 
         /// <summary>
         /// Notify subscribers when this server receives data from the client
@@ -217,8 +223,38 @@ namespace Mirror
             Shutdown();
         }
 
+        /* Wappen extension //////////////////////////////*/
+
         // Wappen: Disconnect reason error extension
-        public System.Net.Sockets.SocketError LastErrorCode;
-        public string LastErrorMessage;
+        public System.Net.Sockets.SocketError ClientLastErrorCode;
+        public string ClientLastErrorMessage;
+
+        public class ErrorInfo
+        {
+            /// <summary>
+            /// Flagged as attempt to do malicious attack.
+            /// </summary>
+            public bool isAttacker;
+
+            public SocketError code;
+
+            public string reason;
+        }
+
+        public readonly Dictionary<int,ErrorInfo> ServerErrorInfo = new Dictionary<int, ErrorInfo>( );
+
+        internal void ServerWriteDisconnectReason( int connectionId, SocketError code, string reason, bool isAttacker )
+        {
+            ErrorInfo ei = new ErrorInfo( );
+            ei.code = code;
+            ei.reason = reason;
+            ei.isAttacker = isAttacker;
+            ServerErrorInfo[connectionId] = ei;
+        }
+
+        internal virtual void ServerSetPreConnectStatus( int connectionId, int state )
+        {
+            // For now only telepathy implemented this
+        }
     }
 }

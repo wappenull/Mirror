@@ -724,7 +724,7 @@ namespace Mirror
 
 #else // Wappen new rule
 
-            _SetupIdsWappenVersion( null );
+            _SetupIdsWappenVersion( "validate" );
             
 #endif // end Mirror/Wappen rule
         }
@@ -1739,14 +1739,9 @@ namespace Mirror
         [ContextMenu("EditorRecomputeIds")]
         public void EditorRecomputeIds( )
         {
-            ulong previousSceneId = m_SceneId;
+            // Note: Calling this to refresh assetID and sceneId
+            // SaveAsPrefab or any save function is assumed to call by external after
             _SetupIdsWappenVersion( "source" );
-
-            if( m_SceneId != previousSceneId )
-            {
-                Debug.LogError( $"BugCheck: {name} m_SceneId should not change during EditorRecomputeIds" );
-                m_SceneId = previousSceneId;
-            }
         }
 
         private void _SetupIdsWappenVersion( string sourceType )
@@ -1776,13 +1771,14 @@ namespace Mirror
 
                 string path = AssetDatabase.GetAssetPath( gameObject );
                 // In some case when exiting prefab stage, GetAssetPath will return blank path while saving, do not apply that data
-                if( !string.IsNullOrEmpty( path ) )
+                if( !string.IsNullOrEmpty( path ) && sourceType == "source" )
                 {
                     string newAssetId = AssetDatabase.AssetPathToGUID( path );
                     if( _AssignAssetIdWithMarkDirty( previousAssetId, newAssetId ) )
                     {
                         Debug.Log( $"NWID {name} set to {m_AssetId} (Pure prefab case)", this );
 
+#if false // prefab case will not run Onvalidate and auto save anymore, the only way to run is via revalidate (source) or from prefab stage editing
                         if( m_UnderOnValidate && sourceType != "source" )
                         {
                             // Extra step, this probably running on a library version of gameobject.
@@ -1796,6 +1792,7 @@ namespace Mirror
                                 PrefabUtility.SavePrefabAsset( capturedGo );
                             };
                         }
+#endif
                     }
                 }
             }
@@ -1815,9 +1812,12 @@ namespace Mirror
             }
             else
             {
-                // It is under a scene!
+                // It is under a scene! and must not under a prefab
                 if( underValidScene )
                     AssignStableSceneID( );
+                else
+                    _EditorWriteSceneId( 0 );
+
                 _ResetPrefabInstanceAssetIdOverride( );
             }
         }
@@ -1889,7 +1889,7 @@ namespace Mirror
 
 #endif
 
-        static string GetGameObjectPath( GameObject gameObject )
+                        static string GetGameObjectPath( GameObject gameObject )
         {
             List<string> path = new List<string>( );
             Transform iter = gameObject.transform;

@@ -1152,12 +1152,14 @@ namespace Mirror
             // set connection to authenticated
             conn.isAuthenticated = true;
 
+#if false // Wappen: modified, server do not send out scene message anymore
             // proceed with the login handshake by calling OnServerConnect
             if (networkSceneName != "" && networkSceneName != offlineScene)
             {
                 SceneMessage msg = new SceneMessage() { sceneName = networkSceneName };
                 conn.Send(msg);
             }
+#endif
 
             OnServerConnect(conn);
         }
@@ -1165,6 +1167,11 @@ namespace Mirror
         void OnServerDisconnectInternal(NetworkConnection conn, DisconnectMessage msg)
         {
             logger.Log("NetworkManager.OnServerDisconnectInternal");
+
+            // Wappen: Also tell authenticator for banning
+            if (authenticator != null)
+                authenticator.OnServerDisconnectInternal(conn);
+
             OnServerDisconnect(conn);
         }
 
@@ -1212,9 +1219,9 @@ namespace Mirror
             OnServerError(conn, msg.value);
         }
 
-        #endregion
+#endregion
 
-        #region Client Internal Message Handlers
+#region Client Internal Message Handlers
 
         void OnClientConnectInternal(NetworkConnection conn, ConnectMessage message)
         {
@@ -1240,6 +1247,7 @@ namespace Mirror
             // set connection to authenticated
             conn.isAuthenticated = true;
 
+#if false // Wappen modified, do not use scene change on connect
             // proceed with the login handshake by calling OnClientConnect
             if (string.IsNullOrEmpty(onlineScene) || onlineScene == offlineScene || IsSceneActive(onlineScene))
             {
@@ -1252,6 +1260,10 @@ namespace Mirror
                 clientLoadedScene = true;
                 clientReadyConnection = conn;
             }
+#else
+            clientLoadedScene = false;
+            OnClientConnect(conn);
+#endif
         }
 
         void OnClientDisconnectInternal(NetworkConnection conn, DisconnectMessage msg)
@@ -1286,9 +1298,9 @@ namespace Mirror
             }
         }
 
-        #endregion
+#endregion
 
-        #region Server System Callbacks
+#region Server System Callbacks
 
         /// <summary>
         /// Called on the server when a new client connects.
@@ -1365,9 +1377,9 @@ namespace Mirror
         /// <param name="sceneName">The name of the new scene.</param>
         public virtual void OnServerSceneChanged(string sceneName) { }
 
-        #endregion
+#endregion
 
-        #region Client System Callbacks
+#region Client System Callbacks
 
         /// <summary>
         /// Called on the client when connected to a server.
@@ -1451,9 +1463,9 @@ namespace Mirror
             }
         }
 
-        #endregion
+#endregion
 
-        #region Start & Stop callbacks
+#region Start & Stop callbacks
 
         // Since there are multiple versions of StartServer, StartClient and StartHost, to reliably customize
         // their functionality, users would need override all the versions. Instead these callbacks are invoked
@@ -1491,6 +1503,6 @@ namespace Mirror
         /// </summary>
         public virtual void OnStopHost() { }
 
-        #endregion
+#endregion
     }
 }

@@ -115,7 +115,7 @@ namespace Telepathy
         }
 
         // read message (via stream) with the <size,content> message structure
-        protected static bool ReadMessageBlocking(NetworkStream stream, int MaxMessageSize, out byte[] content)
+        protected static bool ReadMessageBlocking(NetworkStream stream, int MaxMessageSize, out byte[] content, ref string kickReason)
         {
             content = null;
 
@@ -140,6 +140,7 @@ namespace Telepathy
                 return stream.ReadExactly(content, size);
             }
             Logger.LogWarning("ReadMessageBlocking: possible allocation attack with a header of: " + size + " bytes.");
+            kickReason = "size attack";
             return false;
         }
 
@@ -152,6 +153,9 @@ namespace Telepathy
 
             // keep track of last message queue warning
             DateTime messageQueueLastWarning = DateTime.Now;
+
+            // Wappen, added reason to track for size attack
+            string disconnectReason = null;
 
             // absolutely must wrap with try/catch, otherwise thread exceptions
             // are silent
@@ -181,7 +185,7 @@ namespace Telepathy
                 {
                     // read the next message (blocking) or stop if stream closed
                     byte[] content;
-                    if (!ReadMessageBlocking(stream, MaxMessageSize, out content))
+                    if (!ReadMessageBlocking(stream, MaxMessageSize, out content, ref disconnectReason))
                         // break instead of return so stream close still happens!
                         break;
 
@@ -218,12 +222,17 @@ namespace Telepathy
                 stream.Close();
                 client.Close();
 
+                // Secretly use this message for our kick error
+                byte[] reasonMsg = null;
+                if( disconnectReason != null )
+                    reasonMsg = WappenSerializeDisconnectMessage( SocketError.VersionNotSupported, disconnectReason );
+
                 // add 'Disconnected' message after disconnecting properly.
                 // -> always AFTER closing the streams to avoid a race condition
                 //    where Disconnected -> Reconnect wouldn't work because
                 //    Connected is still true for a short moment before the stream
                 //    would be closed.
-                receiveQueue.Enqueue(new Message(connectionId, EventType.Disconnected, null));
+                receiveQueue.Enqueue(new Message(connectionId, EventType.Disconnected, reasonMsg));
             }
         }
 
@@ -290,6 +299,36 @@ namespace Telepathy
                 // though we can't send anymore.
                 stream.Close();
                 client.Close();
+            }
+        }
+
+        /* Wappen Extension ////////////////////////////////*/
+
+        public static byte[] WappenSerializeDisconnectMessage( SocketError code, string reason )
+        {
+            byte[] extraDisconnectMessage = null;
+            using( System.IO.MemoryStream ms = new System.IO.MemoryStream( ) )
+            {
+                using( System.IO.BinaryWriter bw = new System.IO.BinaryWriter( ms ) )
+                {
+                    bw.Write( (int)code );
+                    bw.Write( reason );
+                }
+                extraDisconnectMessage = ms.ToArray( );
+            }
+            return extraDisconnectMessage;
+        }
+
+        public static void WappenDeserializeDisconnectMessage( byte[] data, out SocketError code, out string reason )
+        {
+            using( System.IO.MemoryStream ms = new System.IO.MemoryStream( data ) )
+            {
+                using( System.IO.BinaryReader br = new System.IO.BinaryReader( ms ) )
+                {
+                    // Read things exactly what we modified in Client.cs
+                    code = (SocketError)br.ReadInt32( );
+                    reason = br.ReadString( );
+                }
             }
         }
     }

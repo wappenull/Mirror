@@ -283,7 +283,7 @@ namespace Mirror
                 else
                 {
                     logger.LogError("Closed connection: " + this + ". Invalid message header.");
-                    Disconnect();
+                    DisconnectWithReason( System.Net.Sockets.SocketError.InvalidArgument, "Invalid message header", true );
                 }
             }
         }
@@ -323,6 +323,14 @@ namespace Mirror
 
             // clear the hashset because we destroyed them all
             clientOwnedObjects.Clear();
+        }
+
+        /* Wappen extension //////////////////////////////*/
+
+        public void DisconnectWithReason( System.Net.Sockets.SocketError code, string reason, bool isAttacker )
+        {
+            Transport.activeTransport.ServerWriteDisconnectReason( connectionId, code, reason, isAttacker );
+            Disconnect( );
         }
     }
 }

@@ -85,5 +85,14 @@ namespace Mirror
             }
 #endif
         }
+
+        /* Wappen extension ///////////////////////////////////*/
+
+        internal void OnServerDisconnectInternal( NetworkConnection conn )
+        {
+            OnServerDisconnect( conn );
+        }
+
+        public virtual void OnServerDisconnect( NetworkConnection conn ) { }
     }
 }
