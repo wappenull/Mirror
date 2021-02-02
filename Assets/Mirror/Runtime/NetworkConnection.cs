@@ -219,14 +219,14 @@ namespace Mirror
             visList.Clear();
         }
 
-        internal bool InvokeHandler(int msgType, NetworkReader reader, int channelId, string debugName = null)
+        internal bool InvokeHandler(int msgType, NetworkReader reader, int channelId)
         {
             if (messageHandlers.TryGetValue(msgType, out NetworkMessageDelegate msgDelegate))
             {
                 msgDelegate(this, reader, channelId);
                 return true;
             }
-            if (logger.LogEnabled()) logger.Log("Unknown message ID " + msgType + " " + this + " debugName:" + debugName + ". May be due to no existing RegisterHandler for this message.");
+            if (logger.LogEnabled()) logger.Log("Unknown message ID " + msgType + " " + this + ". May be due to no existing RegisterHandler for this message.");
             return false;
         }
 
@@ -271,13 +271,13 @@ namespace Mirror
             // unpack message
             using (PooledNetworkReader networkReader = NetworkReaderPool.GetReader(buffer))
             {
-                if (MessagePacker.UnpackMessage(networkReader, out int msgType, out string debugName))
+                if (MessagePacker.UnpackMessage(networkReader, out int msgType))
                 {
                     // logging
                     if (logger.LogEnabled()) logger.Log("ConnectionRecv " + this + " msgType:" + msgType + " content:" + BitConverter.ToString(buffer.Array, buffer.Offset, buffer.Count));
 
                     // try to invoke the handler for that message
-                    if (InvokeHandler(msgType, networkReader, channelId, debugName))
+                    if (InvokeHandler(msgType, networkReader, channelId))
                     {
                         lastMessageTime = Time.time;
                     }

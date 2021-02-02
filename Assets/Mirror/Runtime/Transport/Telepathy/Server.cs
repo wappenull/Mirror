@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
@@ -361,7 +361,7 @@ namespace Telepathy
         /// <summary>
         /// state = 1 to accept, -1 to kill.
         /// </summary>
-        internal void ServerSetPreConnectStatus( int connectionId, int state )
+        public void ServerSetPreConnectStatus( int connectionId, int state )
         {
             if( clientPreConnectWaiting.ContainsKey( connectionId ) )
                 clientPreConnectWaiting[connectionId] = state;

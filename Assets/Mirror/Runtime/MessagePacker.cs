@@ -45,7 +45,6 @@ namespace Mirror
             
             int msgType = GetId( t );
             writer.WriteUInt16((ushort)msgType);
-            writer.WriteString( t.Name );
 
             // serialize message into writer
             message.Serialize(writer);
@@ -65,8 +64,7 @@ namespace Mirror
                 return data;
             }
         }
-        
-#if false // Turn off this variant
+
         // unpack a message we received
         public static T Unpack<T>(byte[] data) where T : IMessageBase, new()
         {
@@ -75,7 +73,6 @@ namespace Mirror
                 int msgType = GetId<T>();
 
                 int id = networkReader.ReadUInt16();
-                string debugName = reader.ReadString( );
                 if (id != msgType)
                     throw new FormatException("Invalid message,  could not unpack " + typeof(T).FullName);
 
@@ -85,25 +82,22 @@ namespace Mirror
                 return message;
             }
         }
-#endif
 
         // unpack message after receiving
         // -> pass NetworkReader so it's less strange if we create it in here
         //    and pass it upwards.
         // -> NetworkReader will point at content afterwards!
-        public static bool UnpackMessage(NetworkReader messageReader, out int msgType, out string debugName)
+        public static bool UnpackMessage(NetworkReader messageReader, out int msgType)
         {
             // read message type (varint)
             try
             {
                 msgType = messageReader.ReadUInt16();
-                debugName = messageReader.ReadString( );
                 return true;
             }
             catch (System.IO.EndOfStreamException)
             {
                 msgType = 0;
-                debugName = "??";
                 return false;
             }
         }

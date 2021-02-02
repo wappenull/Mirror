@@ -188,7 +188,15 @@ namespace Mirror
                     return overrideSceneId;
                 return m_SceneId;
             }
+
+            set => m_SceneId = value;
         }
+
+        /// <summary>
+        /// Wappen: Mirror 6 Compatibility, we will still keep this serialized.
+        /// And keep override scene id feature.
+        /// </summary>
+        [SerializeField] ulong m_SceneId = default;
 
         /// <summary>
         /// Flag to make this object only exist when the game is running as a server (or host).
@@ -353,11 +361,6 @@ namespace Mirror
             }
         }
 
-        /// <summary>
-        /// Wappen: Mirror 6 Compatibility, we will still keep this serialized.
-        /// And keep override scene id feature.
-        /// </summary>
-        [SerializeField] ulong m_SceneId = default;
         
         /// <summary>
         /// Keep track of all sceneIds to detect scene duplicates
@@ -592,11 +595,11 @@ namespace Mirror
                 return;
 
             // no valid sceneId yet, or duplicate?
-            bool duplicate = sceneIds.TryGetValue(m_SceneId, out NetworkIdentity existing) && existing != null && existing != this;
-            if (m_SceneId == 0 || duplicate)
+            bool duplicate = sceneIds.TryGetValue(sceneId, out NetworkIdentity existing) && existing != null && existing != this;
+            if (sceneId == 0 || duplicate)
             {
                 // clear in any case, because it might have been a duplicate
-                m_SceneId = 0;
+                sceneId = 0;
 
                 // if a scene was never opened and we are building it, then a
                 // sceneId would be assigned to build but not saved in editor,
@@ -617,14 +620,14 @@ namespace Mirror
                 Undo.RecordObject(this, "Generated SceneId");
 
                 // generate random sceneId part (0x00000000FFFFFFFF)
-                uint nextId = GetRandomUInt();
+                uint randomId = GetRandomUInt();
 
                 // only assign if not a duplicate of an existing scene id
                 // (small chance, but possible)
-                duplicate = sceneIds.TryGetValue(nextId, out existing) && existing != null && existing != this;
+                duplicate = sceneIds.TryGetValue(randomId, out existing) && existing != null && existing != this;
                 if (!duplicate)
                 {
-                    m_SceneId = nextId;
+                    sceneId = randomId;
                     //logger.Log(name + " in scene=" + gameObject.scene.name + " sceneId assigned to: " + m_SceneId.ToString("X"));
                 }
             }
@@ -672,7 +675,7 @@ namespace Mirror
             ulong shiftedHash = (ulong)pathHash << 32;
 
             // OR into scene id
-            m_SceneId = (sceneId & 0xFFFFFFFF) | shiftedHash;
+            sceneId = (sceneId & 0xFFFFFFFF) | shiftedHash;
 
             // log it. this is incredibly useful to debug sceneId issues.
             if (logger.LogEnabled()) logger.Log(name + " in scene=" + gameObject.scene.name + " scene index hash(" + pathHash.ToString("X") + ") copied into sceneId: " + sceneId.ToString("X"));
@@ -684,7 +687,7 @@ namespace Mirror
             if (ThisIsAPrefab())
             {
                 // force 0 for prefabs
-                m_SceneId = 0;
+                sceneId = 0;
                 AssignAssetID(gameObject);
             }
             // are we currently in prefab editing mode? aka prefab stage

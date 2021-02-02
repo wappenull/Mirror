@@ -203,14 +203,9 @@ namespace Mirror
                 // type+func so Inventory.RpcUse != Equipment.RpcUse
                 functionHash = RemoteCallHelper.GetMethodHash(invokeClass, cmdName),
                 // segment to avoid reader allocations
-                payload = writer.ToArraySegment(),
-
-#if UNITY_EDITOR ||  DEVELOPMENT_BUILD
-                debug = $"{invokeClass.FullName}.{cmdName}" // Same string involved to hash in GetMethodHash
-#endif
+                payload = writer.ToArraySegment()
             };
 
-            //Debug.Log( $"ObjCmd {this.name} {cmdName} hash {message.functionHash}" );
             ClientScene.readyConnection.Send(message, channelId);
         }
 
@@ -241,10 +236,7 @@ namespace Mirror
                 // type+func so Inventory.RpcUse != Equipment.RpcUse
                 functionHash = RemoteCallHelper.GetMethodHash(invokeClass, rpcName),
                 // segment to avoid reader allocations
-                payload = writer.ToArraySegment(),
-#if UNITY_EDITOR ||  DEVELOPMENT_BUILD
-                debug = rpcName
-#endif
+                payload = writer.ToArraySegment()
             };
 
             // The public facing parameter is excludeOwner in [ClientRpc]
@@ -288,64 +280,12 @@ namespace Mirror
                 // type+func so Inventory.RpcUse != Equipment.RpcUse
                 functionHash = RemoteCallHelper.GetMethodHash(invokeClass, rpcName),
                 // segment to avoid reader allocations
-                payload = writer.ToArraySegment(),
-
-#if UNITY_EDITOR ||  DEVELOPMENT_BUILD
-                debug = rpcName
-#endif
+                payload = writer.ToArraySegment()
             };
 
             conn.Send(message, channelId);
         }
 
-        /// <summary>
-        /// Manually invoke an RPC function.
-        /// </summary>
-        /// <param name="rpcHash">Hash of the RPC name.</param>
-        /// <param name="reader">Parameters to pass to the RPC function.</param>
-        /// <returns>Returns true if successful.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public virtual bool InvokeRPC(int rpcHash, NetworkReader reader)
-        {
-            return RemoteCallHelper.InvokeHandlerDelegate(rpcHash, MirrorInvokeType.ClientRpc, reader, this);
-        }
-        #endregion
-
-        #region Sync Events
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        protected void SendEventInternal(Type invokeClass, string eventName, NetworkWriter writer, int channelId)
-        {
-            if (!NetworkServer.active)
-            {
-                logger.LogWarning("SendEvent no server?");
-                return;
-            }
-
-            // construct the message
-            SyncEventMessage message = new SyncEventMessage
-            {
-                netId = netId,
-                componentIndex = ComponentIndex,
-                // type+func so Inventory.RpcUse != Equipment.RpcUse
-                functionHash = RemoteCallHelper.GetMethodHash(invokeClass, eventName),
-                // segment to avoid reader allocations
-                payload = writer.ToArraySegment()
-            };
-
-            NetworkServer.SendToReady(netIdentity, message, channelId);
-        }
-
-        /// <summary>
-        /// Manually invoke a SyncEvent.
-        /// </summary>
-        /// <param name="eventHash">Hash of the SyncEvent name.</param>
-        /// <param name="reader">Parameters to pass to the SyncEvent.</param>
-        /// <returns>Returns true if successful.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public virtual bool InvokeSyncEvent(int eventHash, NetworkReader reader)
-        {
-            return RemoteCallHelper.InvokeHandlerDelegate(eventHash, MirrorInvokeType.SyncEvent, reader, this);
-        }
         #endregion
 
         #region Helpers
