@@ -127,11 +127,11 @@ namespace Mirror
         {
             get
             {
-                if (netIdentityCache == null)
+                if (netIdentityCache is null)
                 {
                     netIdentityCache = GetComponent<NetworkIdentity>();
                     // do this 2nd check inside first if so that we are not checking == twice on unity Object
-                    if (netIdentityCache == null)
+                    if (netIdentityCache is null)
                     {
                         logger.LogError("There is no NetworkIdentity on " + name + ". Please add one.");
                     }
@@ -167,7 +167,10 @@ namespace Mirror
         // We collect all of them and we synchronize them with OnSerialize/OnDeserialize
         protected void InitSyncObject(SyncObject syncObject)
         {
-            syncObjects.Add(syncObject);
+            if (syncObject == null)
+                logger.LogError("Uninitialized SyncObject. Manually call the constructor on your SyncList, SyncSet or SyncDictionary", this);
+            else
+                syncObjects.Add(syncObject);
         }
 
         #region Commands
