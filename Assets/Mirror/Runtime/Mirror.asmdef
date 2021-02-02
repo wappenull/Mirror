@@ -3,7 +3,7 @@
     "references": [
         "Mirror.CompilerSymbols",
         "Telepathy",
-        "Ninja.WebSockets",
+        "kcp2k",
         "PrefabHelper",
         "Steamworks.NET"
     ],
