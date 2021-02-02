@@ -18,10 +18,10 @@ namespace Mirror.Weaver
     /// </summary>
     class NetworkBehaviourProcessor
     {
-        readonly List<FieldDefinition> syncVars = new List<FieldDefinition>();
-        readonly List<FieldDefinition> syncObjects = new List<FieldDefinition>();
+        List<FieldDefinition> syncVars = new List<FieldDefinition>();
+        List<FieldDefinition> syncObjects = new List<FieldDefinition>();
         // <SyncVarField,NetIdField>
-        readonly Dictionary<FieldDefinition, FieldDefinition> syncVarNetIds = new Dictionary<FieldDefinition, FieldDefinition>();
+        Dictionary<FieldDefinition, FieldDefinition> syncVarNetIds = new Dictionary<FieldDefinition, FieldDefinition>();
         readonly List<CmdResult> commands = new List<CmdResult>();
         readonly List<ClientRpcResult> clientRpcs = new List<ClientRpcResult>();
         readonly List<MethodDefinition> targetRpcs = new List<MethodDefinition>();
@@ -51,34 +51,53 @@ namespace Mirror.Weaver
             netBehaviourSubclass = td;
         }
 
-        public void Process()
+        // return true if modified
+        public bool Process()
         {
+            // only process once
+            if (WasProcessed(netBehaviourSubclass))
+            {
+                return false;
+            }
+            Weaver.DLog(netBehaviourSubclass, "Found NetworkBehaviour " + netBehaviourSubclass.FullName);
+
             if (netBehaviourSubclass.HasGenericParameters)
             {
                 Weaver.Error($"{netBehaviourSubclass.Name} cannot have generic parameters", netBehaviourSubclass);
-                return;
+                // originally Process returned true in every case, except if already processed.
+                // maybe return false here in the future.
+                return true;
             }
             Weaver.DLog(netBehaviourSubclass, "Process Start");
             MarkAsProcessed(netBehaviourSubclass);
-            SyncVarProcessor.ProcessSyncVars(netBehaviourSubclass, syncVars, syncObjects, syncVarNetIds);
+
+            // deconstruct tuple and set fields
+            (syncVars, syncVarNetIds) = SyncVarProcessor.ProcessSyncVars(netBehaviourSubclass);
+
+            syncObjects = SyncObjectProcessor.FindSyncObjectsFields(netBehaviourSubclass);
 
             ProcessMethods();
 
             SyncEventProcessor.ProcessEvents(netBehaviourSubclass, eventRpcs, eventRpcInvocationFuncs);
             if (Weaver.WeavingFailed)
             {
-                return;
+                // originally Process returned true in every case, except if already processed.
+                // maybe return false here in the future.
+                return true;
             }
             GenerateConstants();
 
             GenerateSerialization();
             if (Weaver.WeavingFailed)
             {
-                return;
+                // originally Process returned true in every case, except if already processed.
+                // maybe return false here in the future.
+                return true;
             }
 
             GenerateDeSerialization();
             Weaver.DLog(netBehaviourSubclass, "Process Done");
+            return true;
         }
 
         /*
@@ -855,7 +874,21 @@ namespace Mirror.Weaver
             collection.Add(new ParameterDefinition("senderConnection", ParameterAttributes.None, Weaver.CurrentAssembly.MainModule.ImportReference(WeaverTypes.NetworkConnectionType)));
         }
 
-        public static bool ProcessMethodsValidateFunction(MethodReference md)
+        // check if a Command/TargetRpc/Rpc function & parameters are valid for weaving
+        public static bool ValidateRemoteCallAndParameters(MethodDefinition method, RemoteCallType callType)
+        {
+            if (method.IsStatic)
+            {
+                Weaver.Error($"{method.Name} must not be static", method);
+                return false;
+            }
+
+            return ValidateFunction(method) &&
+                   ValidateParameters(method, callType);
+        }
+
+        // check if a Command/TargetRpc/Rpc function is valid for weaving
+        static bool ValidateFunction(MethodReference md)
         {
             if (md.ReturnType.FullName == WeaverTypes.IEnumeratorType.FullName)
             {
@@ -875,15 +908,13 @@ namespace Mirror.Weaver
             return true;
         }
 
-        public static bool ProcessMethodsValidateParameters(MethodReference method, RemoteCallType callType)
+        // check if all Command/TargetRpc/Rpc function's parameters are valid for weaving
+        static bool ValidateParameters(MethodReference method, RemoteCallType callType)
         {
             for (int i = 0; i < method.Parameters.Count; ++i)
             {
                 ParameterDefinition param = method.Parameters[i];
-
-                bool valid = ValidateParameter(method, param, callType, i == 0);
-
-                if (!valid)
+                if (!ValidateParameter(method, param, callType, i == 0))
                 {
                     return false;
                 }
@@ -891,6 +922,7 @@ namespace Mirror.Weaver
             return true;
         }
 
+        // validate parameters for a remote function call like Rpc/Cmd
         static bool ValidateParameter(MethodReference method, ParameterDefinition param, RemoteCallType callType, bool firstParam)
         {
             bool isNetworkConnection = param.ParameterType.FullName == WeaverTypes.NetworkConnectionType.FullName;
@@ -982,7 +1014,7 @@ namespace Mirror.Weaver
                 return;
             }
 
-            if (!RpcProcessor.ProcessMethodsValidateRpc(md))
+            if (!ValidateRemoteCallAndParameters(md, RemoteCallType.ClientRpc))
             {
                 return;
             }
@@ -1003,6 +1035,8 @@ namespace Mirror.Weaver
             });
 
             MethodDefinition rpcCallFunc = RpcProcessor.ProcessRpcCall(netBehaviourSubclass, md, clientRpcAttr);
+            // need null check here because ProcessRpcCall returns null if it can't write all the args
+            if (rpcCallFunc == null) { return; }
 
             MethodDefinition rpcFunc = RpcProcessor.ProcessRpcInvoke(netBehaviourSubclass, md, rpcCallFunc);
             if (rpcFunc != null)
@@ -1019,7 +1053,7 @@ namespace Mirror.Weaver
                 return;
             }
 
-            if (!TargetRpcProcessor.ProcessMethodsValidateTargetRpc(md))
+            if (!ValidateRemoteCallAndParameters(md, RemoteCallType.TargetRpc))
                 return;
 
             if (names.Contains(md.Name))
@@ -1047,7 +1081,7 @@ namespace Mirror.Weaver
                 return;
             }
 
-            if (!CommandProcessor.ProcessMethodsValidateCommand(md))
+            if (!ValidateRemoteCallAndParameters(md, RemoteCallType.Command))
                 return;
 
             if (names.Contains(md.Name))
