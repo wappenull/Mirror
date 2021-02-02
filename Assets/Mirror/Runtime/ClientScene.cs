@@ -84,7 +84,10 @@ namespace Mirror
             DestroyAllClientObjects();
         }
 
-        // this is called from message handler for Owner message
+        /// <summary>
+        /// this is called from message handler for Owner message
+        /// </summary>
+        /// <param name="identity"></param>
         internal static void InternalAddPlayer(NetworkIdentity identity)
         {
             logger.Log("ClientScene.InternalAddPlayer");
@@ -105,6 +108,17 @@ namespace Mirror
             {
                 logger.LogWarning("No ready connection found for setting player controller during InternalAddPlayer");
             }
+        }
+
+        /// <summary>
+        /// Sets localPlayer to null
+        /// <para>Should be called when the local player object is destroyed</para>
+        /// </summary>
+        internal static void ClearLocalPlayer()
+        {
+            logger.Log("ClientScene.ClearLocalPlayer");
+
+            localPlayer = null;
         }
 
         /// <summary>
@@ -770,7 +784,7 @@ namespace Mirror
 
         internal static void OnSpawn(SpawnMessage msg)
         {
-            if (logger.LogEnabled()) logger.Log($"Client spawn handler instantiating netId={msg.netId} assetID={msg.assetId} sceneId={msg.sceneId} pos={msg.position}");
+            if (logger.LogEnabled()) logger.Log($"Client spawn handler instantiating netId={msg.netId} assetID={msg.assetId} sceneId={msg.sceneId:X} pos={msg.position}");
 
             if (FindOrSpawnObject(msg, out NetworkIdentity identity))
             {
@@ -809,7 +823,7 @@ namespace Mirror
 
             if (identity == null)
             {
-                logger.LogError($"Could not spawn assetId={msg.assetId} scene={msg.sceneId} netId={msg.netId}");
+                logger.LogError($"Could not spawn assetId={msg.assetId} scene={msg.sceneId:X} netId={msg.netId}");
                 return false;
             }
 
@@ -859,17 +873,21 @@ namespace Mirror
             NetworkIdentity identity = GetAndRemoveSceneObject(msg.sceneId);
             if (identity == null)
             {
-                logger.LogError($"Spawn scene object not found for {msg.sceneId.ToString("X")} SpawnableObjects.Count={spawnableObjects.Count}");
+                logger.LogError($"Spawn scene object not found for {msg.sceneId:X} SpawnableObjects.Count={spawnableObjects.Count}");
 
                 // dump the whole spawnable objects dict for easier debugging
                 if (logger.LogEnabled())
                 {
                     foreach (KeyValuePair<ulong, NetworkIdentity> kvp in spawnableObjects)
-                        logger.Log("Spawnable: SceneId=" + kvp.Key + " name=" + kvp.Value.name);
+                        logger.Log($"Spawnable: SceneId={kvp.Key:X} name={kvp.Value.name}");
                 }
             }
+            else
+            {
+                // only log this when successful
+                if (logger.LogEnabled()) logger.Log($"Client spawn for [netId:{msg.netId}] [sceneId:{msg.sceneId:X}] obj:{identity}");
+            }
 
-            if (logger.LogEnabled()) logger.Log("Client spawn for [netId:" + msg.netId + "] [sceneId:" + msg.sceneId + "] obj:" + identity);
             return identity;
         }
 
@@ -895,6 +913,8 @@ namespace Mirror
         {
             logger.Log("SpawnFinished");
 
+            ClearNullFromSpawned();
+
             // paul: Initialize the objects in the same order as they were initialized
             // in the server.   This is important if spawned objects
             // use data from scene objects
@@ -905,6 +925,29 @@ namespace Mirror
                 CheckForLocalPlayer(identity);
             }
             isSpawnFinished = true;
+        }
+
+        static readonly List<uint> toRemoveFromSpawned = new List<uint>();
+        static void ClearNullFromSpawned()
+        {
+            // spawned has null objects after changing scenes on client using NetworkManager.ServerChangeScene
+            // remove them here so that 2nd loop below does not get NullReferenceException 
+            // see https://github.com/vis2k/Mirror/pull/2240
+            // TODO fix scene logic so that client scene doesn't have null objects
+            foreach (KeyValuePair<uint, NetworkIdentity> kvp in NetworkIdentity.spawned)
+            {
+                if (kvp.Value == null)
+                {
+                    toRemoveFromSpawned.Add(kvp.Key);
+                }
+            }
+
+            // can't modifiy NetworkIdentity.spawned inside foreach so need 2nd loop to remove
+            foreach (uint id in toRemoveFromSpawned)
+            {
+                NetworkIdentity.spawned.Remove(id);
+            }
+            toRemoveFromSpawned.Clear();
         }
 
         internal static void OnObjectHide(ObjectHideMessage msg)

@@ -7,25 +7,6 @@ using UnityEngine.TestTools;
 
 namespace Mirror.Tests.ClientSceneTests
 {
-    public class FakeNetworkConnection : NetworkConnectionToClient
-    {
-        public FakeNetworkConnection() : base(1)
-        {
-        }
-
-        public override string address => "Test";
-
-        public override void Disconnect()
-        {
-            // nothing
-        }
-
-        internal override bool Send(ArraySegment<byte> segment, int channelId = 0)
-        {
-            return true;
-        }
-    }
-
     public class PayloadTestBehaviour : NetworkBehaviour
     {
         public int value;
@@ -166,7 +147,7 @@ namespace Mirror.Tests.ClientSceneTests
             prefabs.Add(validPrefabGuid, null);
 
             LogAssert.Expect(LogType.Error, $"Failed to spawn server object, did you forget to add it to the NetworkManager? assetId={msg.assetId} netId={msg.netId}");
-            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId} netId={msg.netId}");
+            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId:X} netId={msg.netId}");
             bool success = ClientScene.FindOrSpawnObject(msg, out NetworkIdentity networkIdentity);
 
 
@@ -250,7 +231,7 @@ namespace Mirror.Tests.ClientSceneTests
             });
 
             LogAssert.Expect(LogType.Error, $"Spawn Handler returned null, Handler assetId '{msg.assetId}'");
-            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId} netId={msg.netId}");
+            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId:X} netId={msg.netId}");
             bool success = ClientScene.FindOrSpawnObject(msg, out NetworkIdentity networkIdentity);
 
             Assert.IsFalse(success);
@@ -274,7 +255,7 @@ namespace Mirror.Tests.ClientSceneTests
             });
 
             LogAssert.Expect(LogType.Error, $"Object Spawned by handler did not have a NetworkIdentity, Handler assetId '{validPrefabGuid}'");
-            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId} netId={msg.netId}");
+            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId:X} netId={msg.netId}");
             bool success = ClientScene.FindOrSpawnObject(msg, out NetworkIdentity networkIdentity);
 
             Assert.IsFalse(success);
@@ -348,8 +329,8 @@ namespace Mirror.Tests.ClientSceneTests
                 sceneId = sceneId,
             };
 
-            LogAssert.Expect(LogType.Error, $"Spawn scene object not found for {msg.sceneId.ToString("X")} SpawnableObjects.Count={spawnableObjects.Count}");
-            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId} netId={msg.netId}");
+            LogAssert.Expect(LogType.Error, $"Spawn scene object not found for {msg.sceneId:X} SpawnableObjects.Count={spawnableObjects.Count}");
+            LogAssert.Expect(LogType.Error, $"Could not spawn assetId={msg.assetId} scene={msg.sceneId:X} netId={msg.netId}");
             bool success = ClientScene.FindOrSpawnObject(msg, out NetworkIdentity networkIdentity);
 
             Assert.IsFalse(success);
