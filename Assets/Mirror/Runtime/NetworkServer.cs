@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using Mirror.RemoteCalls;
 using UnityEngine;
@@ -91,16 +90,6 @@ namespace Mirror
             public void Decline( ) => verdict = -1;
         }
 
-
-        /// <summary>
-        /// Reset the NetworkServer singleton.
-        /// <para>Deprecated 02/23/2020</para>
-        /// </summary>
-        [Obsolete("NetworkServer.Reset was used to reset the singleton, but all it does is set active to false ever since we made NetworkServer static. Use StopServer to stop the server, or Shutdown to fully reset the server.")]
-        public static void Reset()
-        {
-            active = false;
-        }
 
         /// <summary>
         /// This shuts down the server and disconnects all clients.
@@ -1029,13 +1018,6 @@ namespace Mirror
             if (logger.LogEnabled()) logger.Log("Default handler for ready message from " + conn);
             SetClientReady(conn);
         }
-
-        /// <summary>
-        /// Obsolete: Removed as a security risk. Use <see cref="RemovePlayerForConnection(NetworkConnection, bool)">NetworkServer.RemovePlayerForConnection</see> instead.
-        /// <para>Deprecated 5/2/2020</para>
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Removed as a security risk. Use NetworkServer.RemovePlayerForConnection(NetworkConnection conn, bool keepAuthority = false) instead", true)]
-        static void OnRemovePlayerMessage(NetworkConnection conn, RemovePlayerMessage msg) { }
 
         /// <summary>
         /// Removes the player object from the connection
