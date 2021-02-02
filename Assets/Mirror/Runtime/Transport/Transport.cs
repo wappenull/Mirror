@@ -137,8 +137,10 @@ namespace Mirror
 
         /// <summary>
         /// Wappen: on before connect
+        /// Only telepathy has this for now. Caller must later call activeTransport.ServerSetPreConnectStatus( connectionId, verdict ).
+        /// Where verdict 1 = allow, -1 = kill.
         /// </summary>
-        [HideInInspector] public UnityEventInt OnServerPreConnect = new UnityEventInt();
+        public Action<int> OnServerPreConnect = null;
 
         /// <summary>
         /// Notify subscribers when this server receives data from the client

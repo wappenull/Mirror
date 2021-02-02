@@ -204,7 +204,7 @@ namespace Mirror
                 switch (message.eventType)
                 {
                     case Telepathy.EventType.PreConnect:
-                        OnServerPreConnect.Invoke(message.connectionId);
+                        OnServerPreConnect?.Invoke(message.connectionId);
                         break;
                     case Telepathy.EventType.Connected:
                         OnServerConnected.Invoke(message.connectionId);
