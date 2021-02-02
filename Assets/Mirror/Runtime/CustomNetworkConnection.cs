@@ -14,19 +14,13 @@ namespace Mirror
 
         public override string address => m_UsingTransport.ServerGetClientAddress( connectionId );
 
-        readonly List<int> singleConnectionId = new List<int> { -1 };
+        internal override bool IsAlive( float timeout ) => true;
 
-        internal override bool IsClientAlive( ) => true;
-
-        internal override bool Send( ArraySegment<byte> segment, int channelId = Channels.DefaultReliable )
+        internal override void Send( ArraySegment<byte> segment, int channelId = Channels.DefaultReliable )
         {
             // validate packet size first.
             if( _ValidatePacketSize( segment, channelId ) )
-            {
-                singleConnectionId[0] = connectionId;
-                return m_UsingTransport.ServerSend( singleConnectionId, channelId, segment );
-            }
-            return false;
+                m_UsingTransport.ServerSend( connectionId, channelId, segment );
         }
 
         /// <summary>
@@ -38,7 +32,6 @@ namespace Mirror
             // (might be client or host mode here)
             isReady = false;
             m_UsingTransport.ServerDisconnect( connectionId );
-            RemoveObservers( );
         }
     }
 
@@ -51,14 +44,11 @@ namespace Mirror
 
         public override string address => "";
 
-        internal override bool Send( ArraySegment<byte> segment, int channelId = Channels.DefaultReliable )
+        internal override void Send( ArraySegment<byte> segment, int channelId = Channels.DefaultReliable )
         {
             // validate packet size first.
             if( _ValidatePacketSize( segment, channelId ) )
-            {
-                return m_UsingTransport.ClientSend( channelId, segment );
-            }
-            return false;
+                m_UsingTransport.ClientSend( channelId, segment );
         }
 
         /// <summary>
