@@ -2,6 +2,7 @@
     "name": "Mirror",
     "references": [
         "Mirror.CompilerSymbols",
+        "Telepathy",
         "Ninja.WebSockets",
         "PrefabHelper",
         "Steamworks.NET"

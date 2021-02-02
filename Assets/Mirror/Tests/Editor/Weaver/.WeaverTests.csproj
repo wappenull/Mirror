@@ -64,6 +64,7 @@
   <ItemGroup>
     <Compile Include="GeneratedReaderWriter~\CanUseCustomReadWriteForInterfaces.cs" />
     <Compile Include="GeneratedReaderWriter~\CanUseCustomReadWriteForTypesFromDifferentAssemblies.cs" />
+    <Compile Include="GeneratedReaderWriter~\CreatesForArraySegment.cs" />
     <Compile Include="GeneratedReaderWriter~\CreatesForClass.cs" />
     <Compile Include="GeneratedReaderWriter~\CreatesForClassFromDifferentAssemblies.cs" />
     <Compile Include="GeneratedReaderWriter~\CreatesForClassFromDifferentAssembliesWithValidConstructor.cs" />
@@ -71,10 +72,18 @@
     <Compile Include="GeneratedReaderWriter~\CreatesForClassWithValidConstructor.cs" />
     <Compile Include="GeneratedReaderWriter~\CreatesForEnums.cs" />
     <Compile Include="GeneratedReaderWriter~\CreatesForInheritedFromScriptableObject.cs" />
+    <Compile Include="GeneratedReaderWriter~\CreatesForList.cs" />
     <Compile Include="GeneratedReaderWriter~\CreatesForStructFromDifferentAssemblies.cs" />
     <Compile Include="GeneratedReaderWriter~\CreatesForStructs.cs" />
+    <Compile Include="GeneratedReaderWriter~\CreatesForStuctArraySegment.cs" />
+    <Compile Include="GeneratedReaderWriter~\CreatesForStuctList.cs" />
     <Compile Include="GeneratedReaderWriter~\ExcludesNonSerializedFields.cs" />
     <Compile Include="GeneratedReaderWriter~\GivesErrorForClassWithNoValidConstructor.cs" />
+    <Compile Include="GeneratedReaderWriter~\GivesErrorForInvalidArraySegmentType.cs" />
+    <Compile Include="GeneratedReaderWriter~\GivesErrorForInvalidArrayType.cs" />
+    <Compile Include="GeneratedReaderWriter~\GivesErrorForInvalidListType.cs" />
+    <Compile Include="GeneratedReaderWriter~\GivesErrorForJaggedArray.cs" />
+    <Compile Include="GeneratedReaderWriter~\GivesErrorForMultidimensionalArray.cs" />
     <Compile Include="GeneratedReaderWriter~\GivesErrorWhenUsingInterface.cs" />
     <Compile Include="GeneratedReaderWriter~\GivesErrorWhenUsingMonoBehaviour.cs" />
     <Compile Include="GeneratedReaderWriter~\GivesErrorWhenUsingObject.cs" />
@@ -83,17 +92,21 @@
     <Compile Include="GeneratedReaderWriter~\GivesErrorWhenUsingUnityAsset.cs" />
     <Compile Include="WeaverClientRpcTests~\AbstractClientRpc.cs" />
     <Compile Include="WeaverClientRpcTests~\ClientRpcCantBeStatic.cs" />
-    <Compile Include="WeaverClientRpcTests~\ClientRpcStartsWithRpc.cs" />
     <Compile Include="WeaverClientRpcTests~\ClientRpcThatExcludesOwner.cs" />
     <Compile Include="WeaverClientRpcTests~\ClientRpcValid.cs" />
     <Compile Include="WeaverClientRpcTests~\OverrideAbstractClientRpc.cs" />
     <Compile Include="WeaverClientRpcTests~\OverrideVirtualClientRpc.cs" />
     <Compile Include="WeaverClientRpcTests~\VirtualClientRpc.cs" />
+    <Compile Include="WeaverClientServerAttributeTests~\ClientAttributeOnAbstractMethod.cs" />
+    <Compile Include="WeaverClientServerAttributeTests~\ClientAttributeOnOverrideMethod.cs" />
+    <Compile Include="WeaverClientServerAttributeTests~\ClientAttributeOnVirutalMethod.cs" />
     <Compile Include="WeaverClientServerAttributeTests~\NetworkBehaviourClient.cs" />
     <Compile Include="WeaverClientServerAttributeTests~\NetworkBehaviourServer.cs" />
+    <Compile Include="WeaverClientServerAttributeTests~\ServerAttributeOnAbstractMethod.cs" />
+    <Compile Include="WeaverClientServerAttributeTests~\ServerAttributeOnOverrideMethod.cs" />
+    <Compile Include="WeaverClientServerAttributeTests~\ServerAttributeOnVirutalMethod.cs" />
     <Compile Include="WeaverCommandTests~\AbstractCommand.cs" />
     <Compile Include="WeaverCommandTests~\CommandCantBeStatic.cs" />
-    <Compile Include="WeaverCommandTests~\CommandStartsWithCmd.cs" />
     <Compile Include="WeaverCommandTests~\CommandThatIgnoresAuthority.cs" />
     <Compile Include="WeaverCommandTests~\CommandThatIgnoresAuthorityWithSenderConnection.cs" />
     <Compile Include="WeaverCommandTests~\CommandValid.cs" />
@@ -109,8 +122,10 @@
     <Compile Include="WeaverCommandTests~\ErrorForOptionalNetworkConnectionThatIsNotSenderConnection.cs" />
     <Compile Include="WeaverGeneralTests~\RecursionCount.cs" />
     <Compile Include="WeaverGeneralTests~\TestingScriptableObjectArraySerialization.cs" />
+    <Compile Include="WeaverMessageTests~\AbstractMessageMethods.cs" />
     <Compile Include="WeaverMessageTests~\MessageMemberGeneric.cs" />
     <Compile Include="WeaverMessageTests~\MessageMemberInterface.cs" />
+    <Compile Include="WeaverMessageTests~\MessageNestedInheritance.cs" />
     <Compile Include="WeaverMessageTests~\MessageSelfReferencing.cs" />
     <Compile Include="WeaverMessageTests~\MessageValid.cs" />
     <Compile Include="WeaverMessageTests~\MessageWithBaseClass.cs" />
@@ -232,7 +247,6 @@
     <Compile Include="WeaverSyncVarTests~\SyncVarsSyncList.cs" />
     <Compile Include="WeaverSyncVarTests~\SyncVarsValid.cs" />
     <Compile Include="WeaverSyncEventTests~\ErrorWhenSyncEventUsesGenericParameter.cs" />
-    <Compile Include="WeaverSyncEventTests~\ErrorWhenSyncEventDoesntStartWithEvent.cs" />
     <Compile Include="WeaverSyncEventTests~\SyncEventValid.cs" />
     <Compile Include="WeaverTargetRpcTests~\AbstractTargetRpc.cs" />
     <Compile Include="WeaverTargetRpcTests~\ErrorWhenTargetRpcIsStatic.cs" />
@@ -241,7 +255,6 @@
     <Compile Include="WeaverTargetRpcTests~\TargetRpcCanHaveOtherParametersWhileSkipingNetworkConnection.cs" />
     <Compile Include="WeaverTargetRpcTests~\TargetRpcCanSkipNetworkConnection.cs" />
     <Compile Include="WeaverTargetRpcTests~\ErrorWhenNetworkConnectionIsNotTheFirstParameter.cs" />
-    <Compile Include="WeaverTargetRpcTests~\ErrorWhenMethodDoesNotStartWithTarget.cs" />
     <Compile Include="WeaverTargetRpcTests~\TargetRpcValid.cs" />
     <Compile Include="WeaverTargetRpcTests~\VirtualTargetRpc.cs" />
     <Reference Include="UnityEngine.CoreModule">
