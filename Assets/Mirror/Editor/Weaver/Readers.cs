@@ -17,7 +17,20 @@ namespace Mirror.Weaver
 
         internal static void Register(TypeReference dataType, MethodReference methodReference)
         {
+            string typeName = dataType.FullName;
+            if (readFuncs.ContainsKey(typeName))
+            {
+                Weaver.Warning($"Registering a Read method for {typeName} when one already exists", methodReference);
+            }
+
             readFuncs[dataType.FullName] = methodReference;
+        }
+
+        static void RegisterReadFunc(TypeReference typeReference, MethodDefinition newReaderFunc)
+        {
+            Register(typeReference, newReaderFunc);
+
+            Weaver.WeaveLists.generateContainerClass.Methods.Add(newReaderFunc);
         }
 
         /// <summary>
@@ -116,13 +129,6 @@ namespace Mirror.Weaver
             }
 
             return GenerateClassOrStructReadFunction(variableReference);
-        }
-
-        static void RegisterReadFunc(TypeReference typeReference, MethodDefinition newReaderFunc)
-        {
-            readFuncs[typeReference.FullName] = newReaderFunc;
-
-            Weaver.WeaveLists.generateContainerClass.Methods.Add(newReaderFunc);
         }
 
         static MethodDefinition GenerateEnumReadFunc(TypeReference variable)

@@ -17,12 +17,18 @@ namespace Mirror.Weaver
 
         public static void Register(TypeReference dataType, MethodReference methodReference)
         {
-            writeFuncs[dataType.FullName] = methodReference;
+            string typeName = dataType.FullName;
+            if (writeFuncs.ContainsKey(typeName))
+            {
+                Weaver.Warning($"Registering a Write method for {typeName} when one already exists", methodReference);
+            }
+
+            writeFuncs[typeName] = methodReference;
         }
 
         static void RegisterWriteFunc(TypeReference typeReference, MethodDefinition newWriterFunc)
         {
-            writeFuncs[typeReference.FullName] = newWriterFunc;
+            Register(typeReference, newWriterFunc);
 
             Weaver.WeaveLists.generateContainerClass.Methods.Add(newWriterFunc);
         }
