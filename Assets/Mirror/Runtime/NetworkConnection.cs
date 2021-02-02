@@ -102,7 +102,7 @@ namespace Mirror
         /// Creates a new NetworkConnection with the specified connectionId
         /// </summary>
         /// <param name="networkConnectionId"></param>
-        internal NetworkConnection(int networkConnectionId) : this()
+        public NetworkConnection(int networkConnectionId) : this()
         {
             connectionId = networkConnectionId;
         }
@@ -134,7 +134,8 @@ namespace Mirror
         /// </summary>
         public abstract void Disconnect();
 
-        internal void SetHandlers(Dictionary<int, NetworkMessageDelegate> handlers)
+        // Wappen: Change access to public
+        public void SetHandlers(Dictionary<int, NetworkMessageDelegate> handlers)
         {
             messageHandlers = handlers;
         }
@@ -254,6 +255,7 @@ namespace Mirror
             }
         }
 
+        // Wappen: Change access to public
         // note: original HLAPI HandleBytes function handled >1 message in a while loop, but this wasn't necessary
         //       anymore because NetworkServer/NetworkClient Update both use while loops to handle >1 data events per
         //       frame already.
@@ -264,7 +266,7 @@ namespace Mirror
         /// This function allows custom network connection classes to process data from the network before it is passed to the application.
         /// </summary>
         /// <param name="buffer">The data received.</param>
-        internal void TransportReceive(ArraySegment<byte> buffer, int channelId)
+        public void TransportReceive(ArraySegment<byte> buffer, int channelId)
         {
             // unpack message
             using (PooledNetworkReader networkReader = NetworkReaderPool.GetReader(buffer))
@@ -282,7 +284,8 @@ namespace Mirror
                 }
                 else
                 {
-                    logger.LogError("Closed connection: " + this + ". Invalid message header.");
+                    // Wappen: Change serevety to warning
+                    logger.LogWarning("Closed connection: " + this + ". Invalid message header.");
                     DisconnectWithReason( System.Net.Sockets.SocketError.InvalidArgument, "Invalid message header", true );
                 }
             }

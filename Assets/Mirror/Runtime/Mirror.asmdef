@@ -3,14 +3,16 @@
     "references": [
         "Mirror.CompilerSymbols",
         "Ninja.WebSockets",
-        "PrefabHelper"
+        "PrefabHelper",
+        "Steamworks.NET"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": []
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

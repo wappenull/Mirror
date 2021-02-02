@@ -352,7 +352,7 @@ namespace Mirror
         /// Wappen: Mirror 6 Compatibility, we will still keep this serialized.
         /// And keep override scene id feature.
         /// </summary>
-        [SerializeField, HideInInspector] ulong m_SceneId = default;
+        [SerializeField] ulong m_SceneId = default;
         
         /// <summary>
         /// Keep track of all sceneIds to detect scene duplicates
@@ -434,6 +434,7 @@ namespace Mirror
             hasSpawned = true;
         }
 
+#if UNITY_EDITOR
         void OnValidate()
         {
             m_UnderOnValidate = true;
@@ -442,11 +443,10 @@ namespace Mirror
             // it to make sure that hasSpawned is false
             hasSpawned = false;
 
-#if UNITY_EDITOR
             SetupIDs();
-#endif
             m_UnderOnValidate = false;
         }
+#endif
 
 #if UNITY_EDITOR
         void AssignAssetID(GameObject prefab) => AssignAssetID(AssetDatabase.GetAssetPath(prefab));
@@ -1729,9 +1729,9 @@ namespace Mirror
 
         /* Wappen Extension /////////////////////////////////*/
 
+#if UNITY_EDITOR
         bool m_UnderOnValidate;
 
-#if UNITY_EDITOR
         /// <summary>
         /// Assume called from source prefab.
         /// object obtained from PrefabUtility.LoadPrefabContents.
@@ -1761,7 +1761,7 @@ namespace Mirror
             //   - Else, it could be nested, in this case we will try to "reset" prefab instance override so that it uses its ancester's asset id.
             // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
             string previousAssetId = m_AssetId;
-            bool underValidScene = gameObject.scene != null && gameObject.scene.buildIndex >= 0 && gameObject.scene.IsValid( );
+            bool underValidScene = gameObject.scene != null && !string.IsNullOrEmpty( gameObject.scene.path ) && gameObject.scene.IsValid( );
 
             // Prefab asset appears to be under dummy scene with handle=0 and IsValid()=false
             if( !underValidScene && transform.parent == null && ThisIsAPrefab( ) )
@@ -1796,18 +1796,14 @@ namespace Mirror
                     }
                 }
             }
-            else if( PrefabStageUtility.GetCurrentPrefabStage( ) != null )
+            else if( Wappen.Editor.PrefabHelper.IsPartOfPrefabStage( gameObject, out PrefabStage pfs ) )
             {
-                if( PrefabStageUtility.GetPrefabStage( gameObject ) != null )
+                _EditorWriteSceneId( 0 );
+                if( Wappen.Editor.PrefabHelper.IsRootOfScene( gameObject ) )
                 {
-                    _EditorWriteSceneId( 0 );
-                
-                    if( gameObject.transform.parent == null ) // Must also be root of prefab stage to have assetId
-                    {
-                        string newId = AssetDatabase.AssetPathToGUID( PrefabStageUtility.GetCurrentPrefabStage().prefabAssetPath );
-                        if( _AssignAssetIdWithMarkDirty( previousAssetId, newId ) )
-                            Debug.Log( $"NWID {name} set to {m_AssetId} (Prefab stage case)", this );
-                    }
+                    string newId = AssetDatabase.AssetPathToGUID( pfs.prefabAssetPath );
+                    if( _AssignAssetIdWithMarkDirty( previousAssetId, newId ) )
+                        Debug.Log( $"NWID {name} set to {m_AssetId} (Prefab stage case)", this );
                 }
             }
             else
@@ -1889,7 +1885,7 @@ namespace Mirror
 
 #endif
 
-                        static string GetGameObjectPath( GameObject gameObject )
+        static string GetGameObjectPath( GameObject gameObject )
         {
             List<string> path = new List<string>( );
             Transform iter = gameObject.transform;

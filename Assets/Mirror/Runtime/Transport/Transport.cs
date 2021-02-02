@@ -252,7 +252,7 @@ namespace Mirror
             ServerErrorInfo[connectionId] = ei;
         }
 
-        internal virtual void ServerSetPreConnectStatus( int connectionId, int state )
+        public virtual void ServerSetPreConnectStatus( int connectionId, int state )
         {
             // For now only telepathy implemented this
         }

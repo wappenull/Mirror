@@ -84,8 +84,12 @@ namespace Telepathy
                 listener = TcpListener.Create(port);
                 listener.Server.NoDelay = NoDelay;
                 listener.Server.SendTimeout = SendTimeout;
+
+                // Wappen: Linger 0, force reset
+                listener.Server.LingerState = new LingerOption( true, 0 );
+
+                Logger.Log( $"Server: listening port={port} nodelay={NoDelay} SendTimeout={SendTimeout}" );
                 listener.Start();
-                Logger.Log("Server: listening port=" + port);
 
                 // keep accepting new clients
                 while (true)
@@ -96,29 +100,20 @@ namespace Telepathy
                     // in the thread
                     TcpClient client = listener.AcceptTcpClient();
 
-                    // set socket options
-                    client.NoDelay = NoDelay;
-                    client.SendTimeout = SendTimeout;
-
-                    // generate the next connection id (thread safely)
-                    int connectionId = NextConnectionId();
-
-                    // add to dict immediately
-                    ClientToken token = new ClientToken(client);
-                    clients[connectionId] = token;
-
                     // Wappen: resolve address now!
-                    addressDictionary[connectionId] = ((IPEndPoint)token.client.Client.RemoteEndPoint).Address.ToString();
-                    clientPreConnectWaiting[connectionId] = 0;
+                    int tempId = -1;
+                    string address = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+                    addressDictionary[tempId] = address;
+                    clientPreConnectWaiting[tempId] = 0;
                     
                     // Notify above now!
-                    receiveQueue.Enqueue(new Message(connectionId, EventType.PreConnect, null));
+                    receiveQueue.Enqueue(new Message(tempId, EventType.PreConnect, null));
 
                     // Then wait for preconnect result, only 1 may wait at a time
                     int verdict;
                     while( true )
                     {
-                        verdict = clientPreConnectWaiting[connectionId];
+                        verdict = clientPreConnectWaiting[tempId];
                         if( verdict == 0 )
                         {
                             // No verdict yet
@@ -130,13 +125,27 @@ namespace Telepathy
                     }
 
                     // Check verdict.
-                    clientPreConnectWaiting.TryRemove( connectionId, out _ );
-                    if( verdict < 0 ) // Prekill, or FTL kill
+                    clientPreConnectWaiting.Clear( );
+                    if( verdict < 0 ) // Prekill, aka FTL kill
                     {
-                        token.client.Close();
-                        clients.TryRemove( connectionId, out _ );
-                        continue;
+                        client.Close();
+                        continue; // Back to accept new client again
                     }
+
+                    // VERDICT ACCEPTED! continue to usual Mirror code vvvvvvv
+                    
+                    // set socket options
+                    client.NoDelay = NoDelay;
+                    client.SendTimeout = SendTimeout;
+                    client.LingerState = new LingerOption( true, 0 ); // Wappen, will not linger
+
+                    // generate the next connection id (thread safely)
+                    int connectionId = NextConnectionId();
+
+                    // add to dict immediately
+                    ClientToken token = new ClientToken(client);
+                    clients[connectionId] = token;
+                    addressDictionary[connectionId] = address;
 
                     // spawn a send thread for each client
                     Thread sendThread = new Thread(() =>
@@ -205,6 +214,10 @@ namespace Telepathy
                 // 'SocketException: interrupted'. that's okay.
                 Logger.Log("Server Thread stopped. That's okay. " + exception);
             }
+            catch( ThreadInterruptedException )
+            {
+                // Wappen: This is ok, came from sleep and interruped.
+            }
             catch (Exception exception)
             {
                 // something went wrong. probably important.
@@ -249,7 +262,11 @@ namespace Telepathy
             // close the client connections
             // (might be null if we call Stop so quickly after Start that the
             //  thread was interrupted before even creating the listener)
-            listener?.Stop();
+            if( listener != null )
+            {
+                listener.Server.Close( timeout:0 ); // Wappen: Abortive close
+                listener.Stop();
+            }
 
             // kill listener thread at all costs. only way to guarantee that
             // .Active is immediately false after Stop.

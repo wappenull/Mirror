@@ -121,6 +121,7 @@ namespace Mirror
 
                 Transport.activeTransport.OnServerDisconnected.RemoveListener(OnDisconnected);
                 Transport.activeTransport.OnServerConnected.RemoveListener(OnConnected);
+                Transport.activeTransport.OnServerPreConnect.RemoveListener( OnPreConnect );
                 Transport.activeTransport.OnServerDataReceived.RemoveListener(OnDataReceived);
                 Transport.activeTransport.OnServerError.RemoveListener(OnError);
 

@@ -54,7 +54,9 @@ namespace Mirror
                     }
                     // throwing an exception would only show it for one object
                     // because this function would return afterwards.
-                    else Debug.LogError("Scene " + identity.gameObject.scene.path + " needs to be opened and resaved, because the scene object " + identity.name + " has no valid sceneId yet.");
+                    else Debug.LogWarning("Scene " + identity.gameObject.scene.path + " needs to be opened and resaved, because the scene object " + identity.name + " has no valid sceneId yet.");
+
+                    // Wappen: Reduce error to warning
                 }
             }
         }

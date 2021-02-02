@@ -133,7 +133,7 @@ namespace Telepathy
             // protect against allocation attacks. an attacker might send
             // multiple fake '2GB header' packets in a row, causing the server
             // to allocate multiple 2GB byte arrays and run out of memory.
-            if (size <= MaxMessageSize)
+            if (size > 0 && size <= MaxMessageSize)
             {
                 // read exactly 'size' bytes for content (blocking)
                 content = new byte[size];
@@ -214,7 +214,7 @@ namespace Telepathy
                 // something went wrong. the thread was interrupted or the
                 // connection closed or we closed our own connection or ...
                 // -> either way we should stop gracefully
-                Logger.Log("ReceiveLoop: finished receive function for connectionId=" + connectionId + " reason: " + exception);
+                Logger.Log("ReceiveLoop: finished receive function for connectionId=" + connectionId + " reason: " + exception + " \n at:" + exception.StackTrace );
             }
             finally
             {

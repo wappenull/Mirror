@@ -325,7 +325,7 @@ namespace Mirror
 
         /* Wappen extension /////////////////////////////*/
 
-        internal override void ServerSetPreConnectStatus( int connectionId, int state )
+        public override void ServerSetPreConnectStatus( int connectionId, int state )
         {
             server.ServerSetPreConnectStatus( connectionId, state );
         }

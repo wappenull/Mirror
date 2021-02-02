@@ -110,19 +110,22 @@ namespace Telepathy
             }
             catch (SocketException exception)
             {
-                // Wappen: Only mark error in editor
+                if( !abortConnect )
+                {
+                    // Wappen: Only mark error in editor
 #if UNITY_EDITOR
-                // this happens if (for example) the ip address is correct
-                // but there is no server running on that ip/port
-                Logger.LogError($"Client Recv: failed to connect to ip={ip} port={port} reason={exception}");
+                    // this happens if (for example) the ip address is correct
+                    // but there is no server running on that ip/port
+                    Logger.LogError($"Client Recv: failed to connect to ip={ip} port={port} reason={exception}");
 #endif
 
-                // Wappen: Prepare extra reason, this is sending from worker thread to main thread
-                byte[] extraDisconnectMessage = WappenSerializeDisconnectMessage( exception.SocketErrorCode, exception.Message );
+                    // Wappen: Prepare extra reason, this is sending from worker thread to main thread
+                    byte[] extraDisconnectMessage = WappenSerializeDisconnectMessage( exception.SocketErrorCode, exception.Message );
 
-                // add 'Disconnected' event to message queue so that the caller
-                // knows that the Connect failed. otherwise they will never know
-                receiveQueue.Enqueue( new Message( 0, EventType.Disconnected, extraDisconnectMessage ) );
+                    // add 'Disconnected' event to message queue so that the caller
+                    // knows that the Connect failed. otherwise they will never know
+                    receiveQueue.Enqueue( new Message( 0, EventType.Disconnected, extraDisconnectMessage ) );
+                }
             }
             catch (ThreadInterruptedException)
             {
