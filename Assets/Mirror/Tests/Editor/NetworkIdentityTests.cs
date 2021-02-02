@@ -1301,7 +1301,7 @@ namespace Mirror.Tests
             // call HandleCommand and check if the command was called in the component
             int functionHash = RemoteCallHelper.GetMethodHash(typeof(CommandTestNetworkBehaviour), nameof(CommandTestNetworkBehaviour.CommandGenerated));
             NetworkReader payload = new NetworkReader(new byte[0]);
-            identity.HandleCommand(0, functionHash, payload, connection);
+            identity.HandleRemoteCall(0, functionHash, MirrorInvokeType.Command, payload, connection);
             Assert.That(comp0.called, Is.EqualTo(1));
             Assert.That(comp0.senderConnectionInCall, Is.EqualTo(connection));
 
@@ -1309,14 +1309,14 @@ namespace Mirror.Tests
             // try wrong component index. command shouldn't be called again.
             // warning is expected
             LogAssert.ignoreFailingMessages = true;
-            identity.HandleCommand(1, functionHash, payload, connection);
+            identity.HandleRemoteCall(1, functionHash, MirrorInvokeType.Command, payload, connection);
             LogAssert.ignoreFailingMessages = false;
             Assert.That(comp0.called, Is.EqualTo(1));
 
             // try wrong function hash. command shouldn't be called again.
             // warning is expected
             LogAssert.ignoreFailingMessages = true;
-            identity.HandleCommand(0, functionHash + 1, payload, connection);
+            identity.HandleRemoteCall(0, functionHash + 1, MirrorInvokeType.Command, payload, connection);
             LogAssert.ignoreFailingMessages = false;
             Assert.That(comp0.called, Is.EqualTo(1));
 
@@ -1345,63 +1345,20 @@ namespace Mirror.Tests
             // call HandleRpc and check if the rpc was called in the component
             int functionHash = RemoteCallHelper.GetMethodHash(typeof(RpcTestNetworkBehaviour), nameof(RpcTestNetworkBehaviour.RpcGenerated));
             NetworkReader payload = new NetworkReader(new byte[0]);
-            identity.HandleRPC(0, functionHash, payload);
+            identity.HandleRemoteCall(0, functionHash, MirrorInvokeType.ClientRpc, payload);
             Assert.That(comp0.called, Is.EqualTo(1));
 
             // try wrong component index. rpc shouldn't be called again.
             // warning is expected
             LogAssert.ignoreFailingMessages = true;
-            identity.HandleRPC(1, functionHash, payload);
+            identity.HandleRemoteCall(1, functionHash, MirrorInvokeType.ClientRpc, payload);
             LogAssert.ignoreFailingMessages = false;
             Assert.That(comp0.called, Is.EqualTo(1));
 
             // try wrong function hash. rpc shouldn't be called again.
             // warning is expected
             LogAssert.ignoreFailingMessages = true;
-            identity.HandleRPC(0, functionHash + 1, payload);
-            LogAssert.ignoreFailingMessages = false;
-            Assert.That(comp0.called, Is.EqualTo(1));
-
-            // clean up
-            NetworkIdentity.spawned.Clear();
-            RemoteCallHelper.RemoveDelegate(registeredHash);
-        }
-
-        [Test]
-        public void HandleSyncEvent()
-        {
-            // add syncevent component
-            SyncEventTestNetworkBehaviour comp0 = gameObject.AddComponent<SyncEventTestNetworkBehaviour>();
-            Assert.That(comp0.called, Is.EqualTo(0));
-
-            // register the command delegate, otherwise it's not found
-            int registeredHash = RemoteCallHelper.RegisterDelegate(typeof(SyncEventTestNetworkBehaviour),
-                nameof(SyncEventTestNetworkBehaviour.SyncEventGenerated),
-                MirrorInvokeType.SyncEvent,
-                SyncEventTestNetworkBehaviour.SyncEventGenerated);
-
-            // identity needs to be in spawned dict, otherwise command handler
-            // won't find it
-            NetworkIdentity.spawned[identity.netId] = identity;
-
-            // call HandleSyncEvent and check if the event was called in the component
-            int componentIndex = 0;
-            int functionHash = RemoteCallHelper.GetMethodHash(typeof(SyncEventTestNetworkBehaviour), nameof(SyncEventTestNetworkBehaviour.SyncEventGenerated));
-            NetworkReader payload = new NetworkReader(new byte[0]);
-            identity.HandleSyncEvent(componentIndex, functionHash, payload);
-            Assert.That(comp0.called, Is.EqualTo(1));
-
-            // try wrong component index. syncevent shouldn't be called again.
-            // warning is expected
-            LogAssert.ignoreFailingMessages = true;
-            identity.HandleSyncEvent(1, functionHash, payload);
-            LogAssert.ignoreFailingMessages = false;
-            Assert.That(comp0.called, Is.EqualTo(1));
-
-            // try wrong function hash. syncevent shouldn't be called again.
-            // warning is expected
-            LogAssert.ignoreFailingMessages = true;
-            identity.HandleSyncEvent(0, functionHash + 1, payload);
+            identity.HandleRemoteCall(0, functionHash + 1, MirrorInvokeType.ClientRpc, payload);
             LogAssert.ignoreFailingMessages = false;
             Assert.That(comp0.called, Is.EqualTo(1));
 

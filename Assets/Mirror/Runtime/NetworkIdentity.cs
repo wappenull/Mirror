@@ -712,7 +712,12 @@ namespace Mirror
                     //logger.Log(name + " @ scene: " + gameObject.scene.name + " sceneid reset to 0 because CurrentPrefabStage=" + PrefabStageUtility.GetCurrentPrefabStage() + " PrefabStage=" + PrefabStageUtility.GetPrefabStage(gameObject));
                     // NOTE: might make sense to use GetPrefabStage for asset
                     //       path, but let's not touch it while it works.
+#if UNITY_2020_1_OR_NEWER
+                    string path = PrefabStageUtility.GetCurrentPrefabStage().assetPath;
+#else
                     string path = PrefabStageUtility.GetCurrentPrefabStage().prefabAssetPath;
+#endif
+
                     AssignAssetID(path);
                 }
             }
@@ -959,7 +964,7 @@ namespace Mirror
         ///     </item>
         ///     <item>
         ///         returns true if we have no NetworkVisibility, default objects are visible
-        ///     </item>   
+        ///     </item>
         /// </list>
         /// </summary>
         /// <param name="conn"></param>
@@ -1009,7 +1014,7 @@ namespace Mirror
         /// <param name="initialState"></param>
         /// <returns></returns>
         /// <remarks>
-        /// vis2k: readstring bug prevention: 
+        /// vis2k: readstring bug prevention:
         /// <see cref="https://issuetracker.unity3d.com/issues/unet-networkwriter-dot-write-causing-readstring-slash-readbytes-out-of-range-errors-in-clients"/>
         /// <list type="bullet">
         ///     <item>
@@ -1216,7 +1221,7 @@ namespace Mirror
                     $"  * Was there an exception in {comp.GetType()}'s OnSerialize/OnDeserialize code?\n" +
                     $"  * Are the server and client the exact same project?\n" +
                     $"  * Maybe this OnDeserialize call was meant for another GameObject? The sceneIds can easily get out of sync if the Hierarchy was modified only in the client OR the server. Try rebuilding both.\n\n" +
-                    $"Exeption {e}");
+                    $"Exception {e}");
             }
 
             // now the reader should be EXACTLY at 'before + size'.
@@ -1251,58 +1256,36 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Helper function to handle SyncEvent/Command/Rpc
+        /// Helper function to handle Command/Rpc
         /// </summary>
         /// <param name="componentIndex"></param>
         /// <param name="functionHash"></param>
         /// <param name="invokeType"></param>
         /// <param name="reader"></param>
         /// <param name="senderConnection"></param>
-        void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader, NetworkConnectionToClient senderConnection = null, string debugName = null)
+        internal void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader, NetworkConnectionToClient senderConnection = null)
         {
             // check if unity object has been destroyed
             if (this == null)
             {
-                logger.LogWarning(invokeType + " [" + functionHash + "] received for deleted object [netId=" + netId + "]");
+                logger.LogWarning($"{invokeType} [{functionHash}] received for deleted object [netId={netId}]");
                 return;
             }
 
             // find the right component to invoke the function on
-            if (0 <= componentIndex && componentIndex < NetworkBehaviours.Length)
+            if (componentIndex < 0 || componentIndex >= NetworkBehaviours.Length)
             {
-                NetworkBehaviour invokeComponent = NetworkBehaviours[componentIndex];
-                if (!RemoteCallHelper.InvokeHandlerDelegate(functionHash, invokeType, reader, invokeComponent, senderConnection))
-                {
-                    logger.LogError("Found no receiver for incoming " + invokeType + " [" + debugName + "] on " + gameObject + ",  the server and client should have the same NetworkBehaviour instances [netId=" + netId + "].");
-                }
+                logger.LogWarning($"Component [{componentIndex}] not found for [netId={netId}]");
+                return;
             }
-            else
+
+
+            NetworkBehaviour invokeComponent = NetworkBehaviours[componentIndex];
+
+            if (!RemoteCallHelper.InvokeHandlerDelegate(functionHash, invokeType, reader, invokeComponent, senderConnection))
             {
-                logger.LogWarning("Component [" + componentIndex + "] not found for [netId=" + netId + "]");
+                logger.LogError($"Found no receiver for incoming {invokeType} [{functionHash}] on {gameObject.name}, the server and client should have the same NetworkBehaviour instances [netId={netId}].");
             }
-        }
-
-        /// <summary>
-        /// Runs on client
-        /// </summary>
-        /// <param name="componentIndex"></param>
-        /// <param name="eventHash"></param>
-        /// <param name="reader"></param>
-        internal void HandleSyncEvent(int componentIndex, int eventHash, NetworkReader reader, string debugName)
-        {
-            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader, debugName:debugName);
-        }
-
-        /// <summary>
-        /// Runs on server
-        /// </summary>
-        /// <param name="componentIndex"></param>
-        /// <param name="cmdHash"></param>
-        /// <param name="reader"></param>
-        /// <param name="senderConnection"></param>
-        internal void HandleCommand(int componentIndex, int cmdHash, NetworkReader reader, NetworkConnectionToClient senderConnection, string debugName = null)
-        {
-            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader, senderConnection, debugName:debugName);
         }
 
         /// <summary>
@@ -1331,17 +1314,6 @@ namespace Mirror
                 // error can be logged later
                 return default;
             }
-        }
-
-        /// <summary>
-        /// Runs on client
-        /// </summary>
-        /// <param name="componentIndex"></param>
-        /// <param name="rpcHash"></param>
-        /// <param name="reader"></param>
-        internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader, string debugName )
-        {
-            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader, debugName:debugName);
         }
 
         internal void ClearObservers()
@@ -1609,7 +1581,7 @@ namespace Mirror
         /// <summary>
         /// Marks the identity for future reset, this is because we cant reset the identity during destroy
         /// as people might want to be able to read the members inside OnDestroy(), and we have no way
-        /// of invoking reset after OnDestroy is called. 
+        /// of invoking reset after OnDestroy is called.
         /// </summary>
         internal void Reset()
         {
@@ -1700,7 +1672,7 @@ namespace Mirror
 
 
         /// <summary>
-        /// clear all component's dirty bits no matter what 
+        /// clear all component's dirty bits no matter what
         /// </summary>
         internal void ClearAllComponentsDirtyBits()
         {

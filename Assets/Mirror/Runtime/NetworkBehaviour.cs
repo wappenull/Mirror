@@ -214,17 +214,6 @@ namespace Mirror
             ClientScene.readyConnection.Send(message, channelId);
         }
 
-        /// <summary>
-        /// Manually invoke a Command.
-        /// </summary>
-        /// <param name="cmdHash">Hash of the Command name.</param>
-        /// <param name="reader">Parameters to pass to the command.</param>
-        /// <returns>Returns true if successful.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public virtual bool InvokeCommand(int cmdHash, NetworkReader reader)
-        {
-            return RemoteCallHelper.InvokeHandlerDelegate(cmdHash, MirrorInvokeType.Command, reader, this);
-        }
         #endregion
 
         #region Client RPCs
@@ -340,11 +329,7 @@ namespace Mirror
                 // type+func so Inventory.RpcUse != Equipment.RpcUse
                 functionHash = RemoteCallHelper.GetMethodHash(invokeClass, eventName),
                 // segment to avoid reader allocations
-                payload = writer.ToArraySegment(),
-
-#if UNITY_EDITOR ||  DEVELOPMENT_BUILD
-                debug = eventName
-#endif
+                payload = writer.ToArraySegment()
             };
 
             NetworkServer.SendToReady(netIdentity, message, channelId);
