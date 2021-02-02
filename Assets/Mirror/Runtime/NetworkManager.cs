@@ -338,6 +338,12 @@ namespace Mirror
         /// </summary>
         public void StartServer()
         {
+            if (NetworkServer.active)
+            {
+                logger.LogWarning("Server already started.");
+                return;
+            }
+
             mode = NetworkManagerMode.ServerOnly;
 
             // StartServer is inherently ASYNCHRONOUS (=doesn't finish immediately)
@@ -376,6 +382,12 @@ namespace Mirror
         /// </summary>
         public void StartClient()
         {
+            if (NetworkClient.active)
+            {
+                logger.LogWarning("Client already started.");
+                return;
+            }
+
             mode = NetworkManagerMode.ClientOnly;
 
             InitializeSingleton();
@@ -412,6 +424,12 @@ namespace Mirror
         /// <param name="uri">location of the server to connect to</param>
         public void StartClient(Uri uri)
         {
+            if (NetworkClient.active)
+            {
+                logger.LogWarning("Client already started.");
+                return;
+            }
+
             mode = NetworkManagerMode.ClientOnly;
 
             InitializeSingleton();
@@ -445,6 +463,12 @@ namespace Mirror
         /// </summary>
         public void StartHost()
         {
+            if (NetworkServer.active || NetworkClient.active)
+            {
+                logger.LogWarning("Server or Client already started.");
+                return;
+            }
+
             mode = NetworkManagerMode.Host;
 
             // StartHost is inherently ASYNCHRONOUS (=doesn't finish immediately)

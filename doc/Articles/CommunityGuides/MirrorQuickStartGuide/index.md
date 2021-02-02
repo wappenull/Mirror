@@ -337,7 +337,7 @@ private int selectedWeaponLocal = 1;
 public GameObject[] weaponArray;
 
 [SyncVar(hook = nameof(OnWeaponChanged))]
-public int activeWeaponSynced;
+public int activeWeaponSynced = 1;
 
 void OnWeaponChanged(int _Old, int _New)
 {
@@ -455,9 +455,14 @@ So our chosen workaround is to have our GameObject.Find() get the non-networked 
 Create a new script called SceneReference.cs, and add this one variable.
 
 ```cs
-public class SceneReference : MonoBehaviour
+using UnityEngine;
+
+namespace QuickStart
 {
-	public SceneScript sceneScript;
+    public class SceneReference : MonoBehaviour
+    {
+        public SceneScript sceneScript;
+    }
 }
 ```
 
@@ -532,11 +537,15 @@ Add the code to Menu.cs, then in the Button, drag the Menu gameobject into the O
 ```cs
 using UnityEngine;
 using UnityEngine.SceneManagement;
-public class Menu : MonoBehaviour
+
+namespace QuickStart
 {
-    public void LoadScene()
+    public class Menu : MonoBehaviour
     {
-        SceneManager.LoadScene("GamesList");
+        public void LoadScene()
+        {
+            SceneManager.LoadScene("GamesList");
+        }
     }
 }
 ```
@@ -556,11 +565,14 @@ Adjust a canvas button to say Menu (this is our back button). It should look lik
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class GamesList : MonoBehaviour
+namespace QuickStart
 {
-    public void LoadScene()
+    public class GamesList : MonoBehaviour
     {
-        SceneManager.LoadScene("Menu");
+        public void LoadScene()
+        {
+            SceneManager.LoadScene("Menu");
+        }
     }
 }
 ```
@@ -602,15 +614,19 @@ Create a Weapon.cs script, add it to the Weapon1 and Weapon 2 gameObjects inside
 
 ```cs
 using UnityEngine;
-public class Weapon : MonoBehaviour
+
+namespace QuickStart
 {
-    public float weaponSpeed = 15.0f;
-    public float weaponLife = 3.0f;
-    public float weaponCooldown = 1.0f;
-    public int weaponAmmo = 15;
-    
-    public GameObject weaponBullet;
-    public Transform weaponFirePosition;
+    public class Weapon : MonoBehaviour
+    {
+        public float weaponSpeed = 15.0f;
+        public float weaponLife = 3.0f;
+        public float weaponCooldown = 1.0f;
+        public int weaponAmmo = 15;
+
+        public GameObject weaponBullet;
+        public Transform weaponFirePosition;
+    }
 }
 ```
 
@@ -656,17 +672,21 @@ In the  ‘OnWeaponChanged’ function, update it with the new line, so it shoul
 ```cs
 void OnWeaponChanged(int _Old, int _New)
 {
-    activeWeaponSynced = _New;
-    foreach (var item in weaponArray)
+    // disable old weapon
+    // in range and not null
+    if (0 < _Old && _Old < weaponArray.Length && weaponArray[_Old] != null)
     {
-        if (item != null) { item.SetActive(false); }
+        weaponArray[_Old].SetActive(false);
     }
-    if (_New < weaponArray.Length && weaponArray[_New] != null)
+    
+    // enable new weapon
+    // in range and not null
+    if (0 < _New && _New < weaponArray.Length && weaponArray[_New] != null)
     {
         weaponArray[_New].SetActive(true);
         activeWeapon = weaponArray[activeWeaponSynced].GetComponent<Weapon>();
         if( isLocalPlayer ) { sceneScript.UIAmmo(activeWeapon.weaponAmmo); }
-     }
+    }
 }
 ```
 

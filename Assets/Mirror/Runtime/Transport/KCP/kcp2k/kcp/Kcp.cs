@@ -2,7 +2,6 @@
 // Kept as close to original as possible.
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace kcp2k
 {
@@ -44,7 +43,7 @@ namespace kcp2k
         internal int state;
         readonly uint conv;          // conversation
         internal uint mtu;
-        internal uint mss;           // maximum segment size
+        internal uint mss;           // maximum segment size := MTU - OVERHEAD
         internal uint snd_una;       // unacknowledged
         internal uint snd_nxt;
         internal uint rcv_nxt;
@@ -246,6 +245,7 @@ namespace kcp2k
         // sends byte[] to the other end.
         public int Send(byte[] buffer, int offset, int len)
         {
+            // fragment count
             int count;
 
             if (len < 0) return -1;
@@ -253,12 +253,12 @@ namespace kcp2k
             // streaming mode: removed. we never want to send 'hello' and
             // receive 'he' 'll' 'o'. we want to always receive 'hello'.
 
+            // calculate amount of fragments necessary for 'len'
             if (len <= mss) count = 1;
             else count = (int)((len + mss - 1) / mss);
 
-            // this might be a kcp bug.
-            // it's possible that we should check 'count >= rcv_wnd' instead of
-            // the constant here.
+            // original kcp uses WND_RCV const even though rcv_wnd is the
+            // runtime variable. may or may not be correct, see also:
             // see also: https://github.com/skywind3000/kcp/pull/291/files
             if (count >= WND_RCV) return -2;
 
@@ -302,7 +302,7 @@ namespace kcp2k
                 if (rx_srtt < 1) rx_srtt = 1;
             }
             int rto = rx_srtt + Math.Max((int)interval, 4 * rx_rttval);
-            rx_rto = Mathf.Clamp(rto, rx_minrto, RTO_MAX);
+            rx_rto = Utils.Clamp(rto, rx_minrto, RTO_MAX);
         }
 
         // ikcp_shrink_buf
@@ -498,8 +498,10 @@ namespace kcp2k
                 byte cmd = 0;
                 byte frg = 0;
 
+                // enough data left to decode segment (aka OVERHEAD bytes)?
                 if (size < OVERHEAD) break;
 
+                // decode segment
                 offset += Utils.Decode32U(data, offset, ref conv_);
                 if (conv_ != conv) return -1;
 
@@ -511,8 +513,10 @@ namespace kcp2k
                 offset += Utils.Decode32U(data, offset, ref una);
                 offset += Utils.Decode32U(data, offset, ref len);
 
+                // subtract the segment bytes from size
                 size -= OVERHEAD;
 
+                // enough remaining to read 'len' bytes of the actual payload?
                 if (size < len || len < 0) return -2;
 
                 if (cmd != CMD_PUSH && cmd != CMD_ACK &&
@@ -957,6 +961,10 @@ namespace kcp2k
 
         // ikcp_setmtu
         // Change MTU (Maximum Transmission Unit) size.
+        // -> runtime MTU changes disabled so that MaxMessageSize can be a const
+        // -> makes KcpClient/KcpServer significantly more simple if we can
+        //    assume a const max message size.
+        /*
         public void SetMtu(uint mtu)
         {
             if (mtu < 50 || mtu < OVERHEAD)
@@ -966,6 +974,7 @@ namespace kcp2k
             this.mtu = mtu;
             mss = mtu - OVERHEAD;
         }
+        */
 
         // ikcp_interval
         public void SetInterval(uint interval)
