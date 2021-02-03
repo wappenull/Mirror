@@ -305,6 +305,17 @@ namespace Mirror
 
         /* Wappen extension //////////////////////////////*/
 
+        public void SendX<T>( T msg, int channelId = Channels.DefaultReliable) where T : IMessageBase
+        {
+            using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
+            {
+                // pack message and send allocation free
+                MessagePacker.PackX(msg, writer);
+                //NetworkDiagnostics.OnSend(msg, channelId, writer.Position, 1);
+                Send(writer.ToArraySegment(), channelId);
+            }
+        }
+
         public void DisconnectWithReason( System.Net.Sockets.SocketError code, string reason, bool isAttacker )
         {
             Transport.activeTransport.ServerWriteDisconnectReason( connectionId, code, reason, isAttacker );

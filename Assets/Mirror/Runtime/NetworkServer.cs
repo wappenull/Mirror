@@ -678,7 +678,7 @@ namespace Mirror
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>
         public static void UnregisterHandler<T>()
-            where T : struct, NetworkMessage
+            //where T : struct, NetworkMessage // Wappen: Modified for compat
         {
             int msgType = MessagePacker.GetId<T>();
             handlers.Remove(msgType);
@@ -1351,6 +1351,18 @@ namespace Mirror
                     Spawn(identity.gameObject);
             }
             return true;
+        }
+
+        /* Wappen compatibility layer ///////////////////////////////////*/
+
+        public static void RegisterHandlerX<T>(Action<NetworkConnection, T> handler, bool requireAuthentication = true) where T : IMessageBase, new()
+        {
+            int msgType = MessagePacker.GetId<T>();
+            if (handlers.ContainsKey(msgType))
+            {
+                logger.LogWarning($"NetworkServer.RegisterHandler replacing handler for {typeof(T).FullName}, id={msgType}. If replacement is intentional, use ReplaceHandler instead to avoid this warning.");
+            }
+            handlers[msgType] = MessagePacker.MessageHandler(handler, requireAuthentication);
         }
     }
 }

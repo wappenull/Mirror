@@ -386,5 +386,17 @@ namespace Mirror
         {
             return new Uri(reader.ReadString());
         }
+
+        /* Wappen extension //////////////////////////////////////*/
+
+        /// <summary>
+        /// Interface for legacy IMessageBase class.
+        /// </summary>
+        public static T ReadMessageClass<T>( this NetworkReader reader ) where T: IMessageBase, new()
+        {
+            T msg = new T( );
+            msg.Deserialize( reader );
+            return msg;
+        }
     }
 }

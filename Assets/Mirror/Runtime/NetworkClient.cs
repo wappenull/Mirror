@@ -353,7 +353,7 @@ namespace Mirror
         /// </summary>
         /// <typeparam name="T">The message type to unregister.</typeparam>
         public static bool UnregisterHandler<T>()
-            where T : struct, NetworkMessage
+            //where T : struct, NetworkMessage // Wappen: For compatibility
         {
             // use int to minimize collisions
             int msgType = MessagePacker.GetId<T>();
@@ -375,6 +375,33 @@ namespace Mirror
             // NetworkClient.Shutdown. we can't assume that the server is
             // supposed to be shut down too!
             Transport.activeTransport.ClientDisconnect();
+        }
+
+        /* Wappen extension ///////////////////////////////////////*/
+
+        public static void SendX<T>( T message, int channelId = Channels.DefaultReliable )
+            where T : IMessageBase
+        {
+            if( connection != null )
+            {
+                if( connectState == ConnectState.Connected )
+                {
+                    connection.SendX( message, channelId );
+                }
+                else logger.LogError( "NetworkClient Send when not connected to a server" );
+            }
+            else logger.LogError( "NetworkClient Send with no connection" );
+        }
+
+        public static void RegisterHandlerX<T>(Action<NetworkConnection, T> handler, bool requireAuthentication = true)
+            where T : IMessageBase, new()
+        {
+            int msgType = MessagePacker.GetId<T>();
+            if (handlers.ContainsKey(msgType))
+            {
+                logger.LogWarning($"NetworkClient.RegisterHandler replacing handler for {typeof(T).FullName}, id={msgType}. If replacement is intentional, use ReplaceHandler instead to avoid this warning.");
+            }
+            handlers[msgType] = MessagePacker.MessageHandler(handler, requireAuthentication);
         }
     }
 }

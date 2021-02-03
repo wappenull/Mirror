@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Mirror
 {
+#if false // Wappen: Objection this vile update, this is monstrocity, no one wins
     // Deprecated 10/06/2020
     [Obsolete("Implement NetworkMessage instead. Use extension methods instead of Serialize/Deserialize, see https://github.com/vis2k/Mirror/pull/2317", true)]
     public interface IMessageBase { }
@@ -10,6 +11,28 @@ namespace Mirror
     // Deprecated 10/06/2020
     [Obsolete("Implement NetworkMessage instead. Use extension methods instead of Serialize/Deserialize, see https://github.com/vis2k/Mirror/pull/2317", true)]
     public class MessageBase : IMessageBase { }
+#else
+    /// <summary>
+    /// Wappen version of IMessageBase
+    /// Requires to declare Serialize/Deserialize
+    /// </summary>
+    public interface IMessageBase
+    {
+        void Deserialize( NetworkReader reader );
+        void Serialize( NetworkWriter writer );
+    }
+
+#if false // Obsolete, if you want AUTO serialize, use new NetworkMessage instead.
+    public abstract class MessageBase : IMessageBase
+    {
+        // De-serialize the contents of the reader into this message
+        public virtual void Deserialize( NetworkReader reader ) { }
+
+        // Serialize the contents of this message into the writer
+        public virtual void Serialize( NetworkWriter writer ) { }
+    }
+#endif
+#endif
 
     public interface NetworkMessage { }
 

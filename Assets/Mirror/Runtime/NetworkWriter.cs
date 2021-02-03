@@ -447,5 +447,15 @@ namespace Mirror
                 writer.Write(segment.Array[segment.Offset + i]);
             }
         }
+
+        /* Wappen extension ////////////////////////////*/
+
+        /// <summary>
+        /// Interface for legacy IMessageBase class.
+        /// </summary>
+        public static void WriteMessageClass( this NetworkWriter writer, IMessageBase msg )
+        {
+            msg.Serialize( writer );
+        }
     }
 }

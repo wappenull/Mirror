@@ -23,7 +23,7 @@ namespace Mirror
         /// </summary>
         internal const int HeaderSize = sizeof(ushort);
 
-        public static int GetId<T>() where T : struct, NetworkMessage
+        public static int GetId<T>() //where T : struct, NetworkMessage // Wappen: Modified for compat
         {
             // paul: 16 bits is enough to avoid collisions
             //  - keeps the message size small because it gets varinted
@@ -124,6 +124,68 @@ namespace Mirror
                 logger.LogError($"Exception in MessageHandler: {e.GetType().Name} {e.Message} {e.StackTrace}");
                 conn.Disconnect();
             }
+        };
+
+        /* Wappen compatibility layer //////////////////////////////////*/
+
+        public static void PackX<T>( T message, NetworkWriter writer ) where T : IMessageBase
+        {
+            int msgType = GetId<T>( );
+            writer.WriteUInt16( (ushort)msgType );
+
+            // serialize message into writer
+            message.Serialize( writer );
+        }
+
+        public static bool UnpackMessageX( NetworkReader messageReader, out int msgType )
+        {
+            // read message type (varint)
+            try
+            {
+                msgType = messageReader.ReadUInt16( );
+                return true;
+            }
+            catch( System.IO.EndOfStreamException )
+            {
+                msgType = 0;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Good old Msg delegate generator for IMessageBase.
+        /// </summary>
+        internal static NetworkMessageDelegate MessageHandler<T, C>( Action<C, T> handler, bool requireAuthenication )
+            where T : IMessageBase, new()
+            where C : NetworkConnection
+            => ( conn, reader, channelId ) =>
+        {
+            T message = default;
+            try
+            {
+                if( requireAuthenication && !conn.isAuthenticated )
+                {
+                    logger.LogWarning( $"Closing connection: {conn}. Received message {typeof( T )} that required authentication, but the user has not authenticated yet" );
+                    conn.Disconnect( );
+                    return;
+                }
+
+                // if it is a value type, just use defult(T)
+                // otherwise allocate a new instance
+                message = default( T ) != null ? default( T ) : new T( );
+                message.Deserialize( reader );
+            }
+            catch( Exception exception )
+            {
+                logger.LogError( "Closed connection: " + conn + ". This can happen if the other side accidentally (or an attacker intentionally) sent invalid data. Reason: " + exception );
+                conn.Disconnect( );
+                return;
+            }
+            finally
+            {
+            }
+
+            handler( (C)conn, message );
         };
     }
 }
