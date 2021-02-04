@@ -145,6 +145,9 @@ namespace Mirror.Weaver
                     {
                         modified |= WeaveNetworkBehavior(td);
                         modified |= ServerClientAttributeProcessor.Process(td);
+
+                        // Wappen: For IMessageBase
+                        modified |= WeaveMessage(td);
                     }
                 }
                 watch.Stop();
@@ -228,5 +231,42 @@ namespace Mirror.Weaver
             }
         }
 
+        /* Wappen extension //////////////////////*/
+
+        static bool WeaveMessage( TypeDefinition td )
+        {
+            if( !td.IsClass )
+                return false;
+
+            bool modified = false;
+
+            if( td.ImplementsInterface<Mirror.IMessageBase>( ) )
+            {
+                // process this and base classes from parent to child order
+                try
+                {
+                    TypeDefinition parent = td.BaseType.Resolve( );
+                    // process parent
+                    WeaveMessage( parent );
+                }
+                catch( AssemblyResolutionException )
+                {
+                    // this can happen for plugins.
+                    //Console.WriteLine("AssemblyResolutionException: "+ ex.ToString());
+                }
+
+                // process this
+                MessageClassProcessor.Process( td );
+                modified = true;
+            }
+
+            // check for embedded types
+            foreach( TypeDefinition embedded in td.NestedTypes )
+            {
+                modified |= WeaveMessage( embedded );
+            }
+
+            return modified;
+        }
     }
 }

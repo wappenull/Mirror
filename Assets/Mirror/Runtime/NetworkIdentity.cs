@@ -448,19 +448,32 @@ namespace Mirror
 #if UNITY_EDITOR
         void OnValidate()
         {
-            m_UnderOnValidate = true;
-
             // OnValidate is not called when using Instantiate, so we can use
             // it to make sure that hasSpawned is false
             hasSpawned = false;
 
+            // Wappen: Turn off OnValidate on setting up ID, it causes too much warning
+            // Instead use NetworkIdentityTool to control recomputing all IDs.
+            // Or use context menu 'EditorRecomputeIds' to manually recompute individual component
+#if false
             SetupIDs();
-            m_UnderOnValidate = false;
+#else
+            EditorApplication.delayCall += _DelayedOnValidate;
+#endif
+        }
+
+        void _DelayedOnValidate( )
+        {
+            if( this == null ) return; // OnValidate could be called from temp editor object which deleted after one cycle
+            if( IsUnderValidScene( ) == false ) return; // Most of the time these temp object are created in imaginary scene to do import stuff.
+
+            // We want only real game object in real scene
+            SetupIDs();
         }
 #endif
 
 #if UNITY_EDITOR
-        void AssignAssetID(GameObject prefab) => AssignAssetID(AssetDatabase.GetAssetPath(prefab));
+            void AssignAssetID(GameObject prefab) => AssignAssetID(AssetDatabase.GetAssetPath(prefab));
         void AssignAssetID(string path) => m_AssetId = AssetDatabase.AssetPathToGUID(path);
 
         bool ThisIsAPrefab() => PrefabUtility.IsPartOfPrefabAsset(gameObject);
@@ -680,7 +693,7 @@ namespace Mirror
 
 #else // Wappen new rule
 
-            _SetupIdsWappenVersion( "validate" );
+            _SetupIdsWappenVersion( );
             
 #endif // end Mirror/Wappen rule
         }
@@ -1575,8 +1588,6 @@ namespace Mirror
         /* Wappen Extension /////////////////////////////////*/
 
 #if UNITY_EDITOR
-        bool m_UnderOnValidate;
-
         /// <summary>
         /// Assume called from source prefab.
         /// object obtained from PrefabUtility.LoadPrefabContents.
@@ -1586,10 +1597,15 @@ namespace Mirror
         {
             // Note: Calling this to refresh assetID and sceneId
             // SaveAsPrefab or any save function is assumed to call by external after
-            _SetupIdsWappenVersion( "source" );
+            _SetupIdsWappenVersion( );
         }
 
-        private void _SetupIdsWappenVersion( string sourceType )
+        bool IsUnderValidScene( )
+        {
+            return gameObject.scene != null && !string.IsNullOrEmpty( gameObject.scene.path ) && gameObject.scene.IsValid( );
+        }
+
+        private void _SetupIdsWappenVersion( )
         {
             // Could be null due to delayCall
             if( this == null || gameObject == null )
@@ -1606,7 +1622,7 @@ namespace Mirror
             //   - Else, it could be nested, in this case we will try to "reset" prefab instance override so that it uses its ancester's asset id.
             // - NetworkIdentity MUST be on scene and not part of asset prefab in order to have m_SceneId
             string previousAssetId = m_AssetId;
-            bool underValidScene = gameObject.scene != null && !string.IsNullOrEmpty( gameObject.scene.path ) && gameObject.scene.IsValid( );
+            bool underValidScene = IsUnderValidScene( );
 
             // Prefab asset appears to be under dummy scene with handle=0 and IsValid()=false
             if( !underValidScene && transform.parent == null && ThisIsAPrefab( ) )
@@ -1616,28 +1632,12 @@ namespace Mirror
 
                 string path = AssetDatabase.GetAssetPath( gameObject );
                 // In some case when exiting prefab stage, GetAssetPath will return blank path while saving, do not apply that data
-                if( !string.IsNullOrEmpty( path ) && sourceType == "source" )
+                if( !string.IsNullOrEmpty( path ) )
                 {
                     string newAssetId = AssetDatabase.AssetPathToGUID( path );
                     if( _AssignAssetIdWithMarkDirty( previousAssetId, newAssetId ) )
                     {
-                        Debug.Log( $"NWID {name} set to {m_AssetId} (Pure prefab case)", this );
-
-#if false // prefab case will not run Onvalidate and auto save anymore, the only way to run is via revalidate (source) or from prefab stage editing
-                        if( m_UnderOnValidate && sourceType != "source" )
-                        {
-                            // Extra step, this probably running on a library version of gameobject.
-                            // to actually save it source asset, must use special API
-                            EditorUtility.SetDirty( this );
-
-                            GameObject capturedGo = this.gameObject;
-                            EditorApplication.delayCall += () =>
-                            {
-                                Debug.Log( "Delay save " + GetGameObjectPath( capturedGo ) );
-                                PrefabUtility.SavePrefabAsset( capturedGo );
-                            };
-                        }
-#endif
+                        Debug.Log( $"NWID {name} set from '{previousAssetId}' to '{m_AssetId}' (Pure prefab case)", this );
                     }
                 }
             }
@@ -1648,7 +1648,7 @@ namespace Mirror
                 {
                     string newId = AssetDatabase.AssetPathToGUID( pfs.prefabAssetPath );
                     if( _AssignAssetIdWithMarkDirty( previousAssetId, newId ) )
-                        Debug.Log( $"NWID {name} set to {m_AssetId} (Prefab stage case)", this );
+                        Debug.Log( $"NWID {name} set from '{previousAssetId}' to '{m_AssetId}' (Prefab stage case)", this );
                 }
             }
             else
@@ -1687,7 +1687,7 @@ namespace Mirror
         {
             // so.FindProperty somehow uses SendMessage and will trigger warning. 
             // So do not run this while under OnValidate
-            if( Application.isPlaying || m_UnderOnValidate )
+            if( Application.isPlaying )
                 return;
 
             using( SerializedObject so = new SerializedObject( this ) )

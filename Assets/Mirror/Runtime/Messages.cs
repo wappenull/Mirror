@@ -4,6 +4,7 @@ using UnityEngine;
 namespace Mirror
 {
 #if false // Wappen: Objection this vile update, this is monstrocity, no one wins
+
     // Deprecated 10/06/2020
     [Obsolete("Implement NetworkMessage instead. Use extension methods instead of Serialize/Deserialize, see https://github.com/vis2k/Mirror/pull/2317", true)]
     public interface IMessageBase { }
@@ -11,7 +12,9 @@ namespace Mirror
     // Deprecated 10/06/2020
     [Obsolete("Implement NetworkMessage instead. Use extension methods instead of Serialize/Deserialize, see https://github.com/vis2k/Mirror/pull/2317", true)]
     public class MessageBase : IMessageBase { }
+
 #else
+
     /// <summary>
     /// Wappen version of IMessageBase
     /// Requires to declare Serialize/Deserialize
@@ -22,7 +25,6 @@ namespace Mirror
         void Serialize( NetworkWriter writer );
     }
 
-#if false // Obsolete, if you want AUTO serialize, use new NetworkMessage instead.
     public abstract class MessageBase : IMessageBase
     {
         // De-serialize the contents of the reader into this message
@@ -31,12 +33,12 @@ namespace Mirror
         // Serialize the contents of this message into the writer
         public virtual void Serialize( NetworkWriter writer ) { }
     }
-#endif
+
 #endif
 
     public interface NetworkMessage { }
 
-    #region Public System Messages
+#region Public System Messages
     public struct ErrorMessage : NetworkMessage
     {
         public byte value;
@@ -72,9 +74,9 @@ namespace Mirror
         UnloadAdditive
     }
 
-    #endregion
+#endregion
 
-    #region System Messages requried for code gen path
+#region System Messages requried for code gen path
     public struct CommandMessage : NetworkMessage
     {
         public uint netId;
@@ -98,9 +100,9 @@ namespace Mirror
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
     }
-    #endregion
+#endregion
 
-    #region Internal System Messages
+#region Internal System Messages
     public struct SpawnMessage : NetworkMessage
     {
         /// <summary>
@@ -188,5 +190,5 @@ namespace Mirror
         public double clientTime;
         public double serverTime;
     }
-    #endregion
+#endregion
 }

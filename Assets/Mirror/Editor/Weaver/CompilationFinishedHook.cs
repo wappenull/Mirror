@@ -143,6 +143,9 @@ namespace Mirror.Weaver
             Log.WarningMethod = HandleWarning;
             Log.ErrorMethod = HandleError;
 
+            // Wappen: For printing
+            Log.InfoMethod = ( string s ) => Debug.Log( s );
+
             if (!Weaver.WeaveAssembly(assemblyPath, dependencyPaths.ToArray()))
             {
                 // Set false...will be checked in \Editor\EnterPlayModeSettingsCheck.CheckSuccessfulWeave()

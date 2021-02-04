@@ -16,5 +16,14 @@ namespace Mirror.Weaver
         {
             ErrorMethod(msg);
         }
+
+        /* Wappen extension //////////////////////////*/
+
+        public static Action<string> InfoMethod;
+
+        public static void Info(string msg)
+        {
+            InfoMethod(msg);
+        }
     }
 }
