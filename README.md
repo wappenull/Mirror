@@ -26,5 +26,5 @@ So I will have to DEAL WITH IT. Sometimes Mirror updates are **F-ing-up** my gam
 ## All code are provided as-is
 No support from me, don't ever ask how to use it. **Unless you are  a $1000 paying sponsor Teehee!**. 
 
-    If someone from Mirror discord is reading this, pls be proud, go and sponsor the project! 
+    If someone from Mirror discord is reading this, pls be proud, go and sponsor Mirror project! 
     KTHXBYE.
