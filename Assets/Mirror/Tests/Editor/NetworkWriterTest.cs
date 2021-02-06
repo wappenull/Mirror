@@ -4,7 +4,6 @@ using System.IO;
 using Mirror.Tests.RemoteAttrributeTest;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace Mirror.Tests
 {
@@ -25,45 +24,6 @@ namespace Mirror.Tests
             }
         }
         */
-
-        struct TestStruct
-        {
-#pragma warning disable 649
-            public int data;
-            public byte data2;
-#pragma warning restore 649
-        }
-
-        [Test]
-        public unsafe void BlittableOnThisPlatform()
-        {
-            // we assume NetworkWriter.WriteBlittable<T> to behave the same on
-            // all platforms:
-            // - need to be little endian (atm all Unity platforms are)
-            // - padded structs need to be same size across all platforms
-            //   (C# int, byte, etc. should be same on all platforms, and
-            //    C# should do the same padding on all platforms)
-            //   https://kalapos.net/Blog/ShowPost/DotNetConceptOfTheWeek13_DotNetMemoryLayout
-            // => let's have a test that we can run on different platforms to
-            //    be 100% sure
-
-            // let's assume little endian.
-            // it would also be ok if server and client are both big endian,
-            // but that's extremely unlikely.
-            Assert.That(BitConverter.IsLittleEndian, Is.True);
-
-            // TestStruct biggest member is 'int' = 4 bytes.
-            // so C# aligns it to 4 bytes, hence does padding for the byte:
-            //   0 int
-            //   1 int
-            //   2 int
-            //   3 int
-            //   4 byte
-            //   5 padding
-            //   6 padding
-            //   7 padding
-            Assert.That(sizeof(TestStruct), Is.EqualTo(8));
-        }
 
         [Test]
         public void TestWritingSmallMessage()
@@ -1048,8 +1008,8 @@ namespace Mirror.Tests
             {
                 _ = reader.ReadArray<int>();
             });
-            // todo inprove this message check
-            Assert.That(exception, Has.Message.Contains($"ReadBlittable<{typeof(int)}> out of range"));
+            // todo improve this message check
+            Assert.That(exception, Has.Message.Contains($"ReadByte out of range"));
 
             void WriteBadArray()
             {
@@ -1089,37 +1049,6 @@ namespace Mirror.Tests
         }
 
         [Test]
-        public void ReadNetworkIdentityGivesWarningWhenNotFound()
-        {
-            const uint netId = 423;
-            NetworkWriter writer = new NetworkWriter();
-            writer.WriteUInt32(netId);
-            NetworkReader reader = new NetworkReader(writer.ToArray());
-
-            LogAssert.Expect(LogType.Warning, $"ReadNetworkIdentity netId:{netId} not found in spawned");
-            NetworkIdentity actual = reader.ReadNetworkIdentity();
-            Assert.That(actual, Is.Null);
-
-            Assert.That(reader.Position, Is.EqualTo(4), "should read 4 bytes");
-        }
-
-        [Test]
-        public void ReadNetworkBehaviourGivesWarningWhenNotFound()
-        {
-            const uint netId = 424;
-            NetworkWriter writer = new NetworkWriter();
-            writer.WriteUInt32(netId);
-            writer.WriteByte(0);
-            NetworkReader reader = new NetworkReader(writer.ToArray());
-
-            LogAssert.Expect(LogType.Warning, $"ReadNetworkBehaviour netId:{netId} not found in spawned");
-            NetworkBehaviour actual = reader.ReadNetworkBehaviour();
-            Assert.That(actual, Is.Null);
-
-            Assert.That(reader.Position, Is.EqualTo(5), "should read 5 bytes when netId is not 0");
-        }
-
-        [Test]
         public void TestNetworkBehaviour()
         {
             //setup
@@ -1127,9 +1056,8 @@ namespace Mirror.Tests
             NetworkIdentity identity = gameObject.AddComponent<NetworkIdentity>();
             RpcNetworkIdentityBehaviour behaviour = gameObject.AddComponent<RpcNetworkIdentityBehaviour>();
 
-            const int netId = 100;
+            const uint netId = 100;
             identity.netId = netId;
-            int compIndex = behaviour.ComponentIndex;
 
             NetworkIdentity.spawned[netId] = identity;
 
@@ -1181,9 +1109,8 @@ namespace Mirror.Tests
             NetworkIdentity identity = gameObject.AddComponent<NetworkIdentity>();
             RpcNetworkIdentityBehaviour behaviour = gameObject.AddComponent<RpcNetworkIdentityBehaviour>();
 
-            const int netId = 100;
+            const uint netId = 100;
             identity.netId = netId;
-            int compIndex = behaviour.ComponentIndex;
 
             NetworkIdentity.spawned[netId] = identity;
 

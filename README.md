@@ -6,7 +6,7 @@
 Mirror are releasing updates, some change are cool, some change are not cool. 
 So I will have to DEAL WITH IT. Sometimes Mirror updates are **F-ing-up** my game so I need to place some custom modification.
 
-**Currently synced with Asset Store version of 30.2.2**
+**Currently synced with Asset Store version of 30.5.0**
 
 ## Here are the important differences.
 * **Transport**

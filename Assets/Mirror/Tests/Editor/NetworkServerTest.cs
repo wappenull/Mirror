@@ -78,7 +78,7 @@ namespace Mirror.Tests
         public override void OnStartClient() { ++called; }
     }
 
-    public class OnNetworkDestroyTestNetworkBehaviour : NetworkBehaviour
+    public class OnStopClientTestNetworkBehaviour : NetworkBehaviour
     {
         // counter to make sure that it's called exactly once
         public int called;
@@ -209,7 +209,7 @@ namespace Mirror.Tests
         }
 
         [Test]
-        public void OnConnectedOnlyAllowsGreaterZeroConnectionIdsTest()
+        public void OnConnectedOnlyAllowsNonZeroConnectionIdsTest()
         {
             // OnConnected should only allow connectionIds >= 0
             // 0 is for local player
@@ -230,8 +230,8 @@ namespace Mirror.Tests
             Transport.activeTransport.OnServerConnected.Invoke(0);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
 
-            // connect <0
-            Transport.activeTransport.OnServerConnected.Invoke(-1);
+            // connect == 0 should fail
+            Transport.activeTransport.OnServerConnected.Invoke(0);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
             LogAssert.ignoreFailingMessages = false;
         }
@@ -324,7 +324,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
 
             // add first connection
-            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42);
+            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42, false, 0);
             bool result42 = NetworkServer.AddConnection(conn42);
             Assert.That(result42, Is.True);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(1));
@@ -332,7 +332,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.connections[42], Is.EqualTo(conn42));
 
             // add second connection
-            NetworkConnectionToClient conn43 = new NetworkConnectionToClient(43);
+            NetworkConnectionToClient conn43 = new NetworkConnectionToClient(43, false, 0);
             bool result43 = NetworkServer.AddConnection(conn43);
             Assert.That(result43, Is.True);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(2));
@@ -342,7 +342,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.connections[43], Is.EqualTo(conn43));
 
             // add duplicate connectionId
-            NetworkConnectionToClient connDup = new NetworkConnectionToClient(42);
+            NetworkConnectionToClient connDup = new NetworkConnectionToClient(42, false, 0);
             bool resultDup = NetworkServer.AddConnection(connDup);
             Assert.That(resultDup, Is.False);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(2));
@@ -365,7 +365,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
 
             // add connection
-            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42);
+            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42, false, 0);
             bool result42 = NetworkServer.AddConnection(conn42);
             Assert.That(result42, Is.True);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(1));
@@ -391,7 +391,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
 
             // add connection
-            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42);
+            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42, false, 0);
             NetworkServer.AddConnection(conn42);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(1));
 
@@ -418,7 +418,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.localConnection, Is.EqualTo(localConnection));
 
             // add connection
-            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42);
+            NetworkConnectionToClient conn42 = new NetworkConnectionToClient(42, false, 0);
             NetworkServer.AddConnection(conn42);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(1));
 
@@ -452,7 +452,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
 
             // add a connection
-            NetworkConnectionToClient connection = new NetworkConnectionToClient(42);
+            NetworkConnectionToClient connection = new NetworkConnectionToClient(42, false, 0);
             NetworkServer.AddConnection(connection);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(1));
 
@@ -776,7 +776,7 @@ namespace Mirror.Tests
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(0));
 
             // add a connection
-            NetworkConnectionToClient connection = new NetworkConnectionToClient(42);
+            NetworkConnectionToClient connection = new NetworkConnectionToClient(42, false, 0);
             NetworkServer.AddConnection(connection);
             Assert.That(NetworkServer.connections.Count, Is.EqualTo(1));
 
@@ -1068,7 +1068,7 @@ namespace Mirror.Tests
             // create a gameobject and networkidentity that lives in the scene(=has sceneid)
             GameObject go = new GameObject("Test");
             NetworkIdentity identity = go.AddComponent<NetworkIdentity>();
-            OnNetworkDestroyTestNetworkBehaviour comp = go.AddComponent<OnNetworkDestroyTestNetworkBehaviour>();
+            OnStopClientTestNetworkBehaviour comp = go.AddComponent<OnStopClientTestNetworkBehaviour>();
             // lives in the scene from the start
             identity.sceneId = 42;
             // spawned objects are active
