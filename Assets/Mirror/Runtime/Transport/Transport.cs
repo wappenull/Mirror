@@ -254,7 +254,6 @@ namespace Mirror
         /* Wappen extension //////////////////////////////*/
 
         // Wappen: Disconnect reason error extension
-        public System.Net.Sockets.SocketError ClientLastErrorCode;
         public string ClientLastErrorMessage;
 
         public class ErrorInfo
@@ -264,17 +263,14 @@ namespace Mirror
             /// </summary>
             public bool isAttacker;
 
-            public SocketError code;
-
             public string reason;
         }
 
         public readonly Dictionary<int,ErrorInfo> ServerErrorInfo = new Dictionary<int, ErrorInfo>( );
 
-        internal void ServerWriteDisconnectReason( int connectionId, SocketError code, string reason, bool isAttacker )
+        internal void ServerWriteDisconnectReason( int connectionId, string reason, bool isAttacker )
         {
             ErrorInfo ei = new ErrorInfo( );
-            ei.code = code;
             ei.reason = reason;
             ei.isAttacker = isAttacker;
             ServerErrorInfo[connectionId] = ei;

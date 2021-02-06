@@ -13,6 +13,7 @@ So I will have to DEAL WITH IT. Sometimes Mirror updates are **F-ing-up** my gam
 	* Telepathy can pass disconnect reason from transport level up to application level. (We still dont have this feature in official Mirror despite in develop or several years, what?)
 	* Telepathy can disconnect while in connecting state without freezing up the app.
 	* Telepathy can use 'PreConnect' event to filter/reject incoming IP address before even allocate NetworkConnection for them. (For IP filtering and blacklist)
+	* Telepathy supports **latency emulation**, so you can set latency and see how your game will perform when packets are delayed.
 * **NetworkIdentity**
   * Modify, simplify rule/method of how NetworkIdentity obtain Asset ID. Stop editor warning *"SendMessage cannot be sent from OnValidate"* once and for all.
   * But computing Asset ID will have to be done manually. (we have editor automation to recompute all IDs of prefabs in asset folder)

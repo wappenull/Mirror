@@ -142,7 +142,7 @@ namespace Telepathy
                 return stream.ReadExactly(content, size);
             }
             Logger.LogWarning("ReadMessageBlocking: possible header attack with a header of: " + size + " bytes.");
-            kickReason = "size attack";
+            kickReason = "ATK size attack";
             return false;
         }
 
@@ -227,7 +227,7 @@ namespace Telepathy
                 // Secretly use this message for our kick error
                 byte[] reasonMsg = null;
                 if( disconnectReason != null )
-                    reasonMsg = WappenSerializeDisconnectMessage( SocketError.VersionNotSupported, disconnectReason );
+                    reasonMsg = WappenSerializeDisconnectMessage( disconnectReason );
 
                 // add 'Disconnected' message after disconnecting properly.
                 // -> always AFTER closing the streams to avoid a race condition
@@ -306,14 +306,13 @@ namespace Telepathy
 
         /* Wappen Extension ////////////////////////////////*/
 
-        public static byte[] WappenSerializeDisconnectMessage( SocketError code, string reason )
+        public static byte[] WappenSerializeDisconnectMessage( string reason )
         {
             byte[] extraDisconnectMessage = null;
             using( System.IO.MemoryStream ms = new System.IO.MemoryStream( ) )
             {
                 using( System.IO.BinaryWriter bw = new System.IO.BinaryWriter( ms ) )
                 {
-                    bw.Write( (int)code );
                     bw.Write( reason );
                 }
                 extraDisconnectMessage = ms.ToArray( );
@@ -321,14 +320,13 @@ namespace Telepathy
             return extraDisconnectMessage;
         }
 
-        public static void WappenDeserializeDisconnectMessage( byte[] data, out SocketError code, out string reason )
+        public static void WappenDeserializeDisconnectMessage( byte[] data, out string reason )
         {
             using( System.IO.MemoryStream ms = new System.IO.MemoryStream( data ) )
             {
                 using( System.IO.BinaryReader br = new System.IO.BinaryReader( ms ) )
                 {
                     // Read things exactly what we modified in Client.cs
-                    code = (SocketError)br.ReadInt32( );
                     reason = br.ReadString( );
                 }
             }

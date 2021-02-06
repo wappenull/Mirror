@@ -120,7 +120,7 @@ namespace Telepathy
 #endif
 
                     // Wappen: Prepare extra reason, this is sending from worker thread to main thread
-                    byte[] extraDisconnectMessage = WappenSerializeDisconnectMessage( exception.SocketErrorCode, exception.Message );
+                    byte[] extraDisconnectMessage = WappenSerializeDisconnectMessage( exception.SocketErrorCode.ToString( ) );
 
                     // add 'Disconnected' event to message queue so that the caller
                     // knows that the Connect failed. otherwise they will never know

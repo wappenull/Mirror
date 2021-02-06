@@ -105,12 +105,11 @@ namespace Mirror
                         // error message will have to tug in here, before firing disconnect message
                         if( message.data != null )
                         {
-                            Common.WappenDeserializeDisconnectMessage( message.data, out ClientLastErrorCode, out ClientLastErrorMessage );
+                            Common.WappenDeserializeDisconnectMessage( message.data, out ClientLastErrorMessage );
                         }
                         else
                         {
                             // Something irrelevent, I just pick some SocketError
-                            ClientLastErrorCode = SocketError.NotConnected;
                             ClientLastErrorMessage = "Unknown disconnect.";
                         }
                         OnClientDisconnected.Invoke();
@@ -222,13 +221,11 @@ namespace Mirror
                         // I will tug in error to separate field
                         if( message.data != null )
                         {
-                            SocketError code;
                             string reason;
-                            Common.WappenDeserializeDisconnectMessage( message.data, out code, out reason );
+                            Common.WappenDeserializeDisconnectMessage( message.data, out reason );
 
-                            // For now we treat SocketError.VersionNotSupported as hacking
-                            bool isAttacker = code == SocketError.VersionNotSupported;
-                            ServerWriteDisconnectReason( message.connectionId, code, reason, isAttacker );
+                            bool isAttacker = reason != null && reason.StartsWith( "ATK" );
+                            ServerWriteDisconnectReason( message.connectionId, reason, isAttacker );
                         }
                         OnServerDisconnected.Invoke(message.connectionId);
                         break;

@@ -259,7 +259,7 @@ namespace Mirror
                 {
                     // Wappen: Change serevety to warning
                     logger.LogWarning("Closed connection: " + this + ". Invalid message header.");
-                    DisconnectWithReason( System.Net.Sockets.SocketError.InvalidArgument, "Invalid message header", true );
+                    DisconnectWithReason( "Invalid message header", true );
                 }
             }
         }
@@ -305,20 +305,20 @@ namespace Mirror
 
         /* Wappen extension //////////////////////////////*/
 
-        public void SendX<T>( T msg, int channelId = Channels.DefaultReliable) where T : IMessageBase
+        public void SendX<T>( T msg, int channelId = Channels.DefaultReliable ) where T : IMessageBase
         {
-            using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
+            using( PooledNetworkWriter writer = NetworkWriterPool.GetWriter( ) )
             {
                 // pack message and send allocation free
-                MessagePacker.PackX(msg, writer);
+                MessagePacker.PackX( msg, writer );
                 //NetworkDiagnostics.OnSend(msg, channelId, writer.Position, 1);
-                Send(writer.ToArraySegment(), channelId);
+                Send( writer.ToArraySegment( ), channelId );
             }
         }
 
-        public void DisconnectWithReason( System.Net.Sockets.SocketError code, string reason, bool isAttacker )
+        public void DisconnectWithReason( string reason, bool isAttacker )
         {
-            Transport.activeTransport.ServerWriteDisconnectReason( connectionId, code, reason, isAttacker );
+            Transport.activeTransport.ServerWriteDisconnectReason( connectionId, reason, isAttacker );
             Disconnect( );
         }
     }
